@@ -1,20 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { MarketingPageBackdrop } from "@/components/landing/MarketingPageBackdrop";
 import { MarketingSiteHeader } from "@/components/marketing/MarketingSiteHeader";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 
 export default function ProductTourPage() {
-  const router = useRouter();
-
   /**
-   * Middleware sets `nexus_demo_mode`. Carrier suite → cookie `carrier`, which the
-   * dashboard treats as `userRole: "carrier"` and Fleet Command UI immediately.
+   * Full page navigation (not router.push) so `src/proxy.ts` runs on a document
+   * request with `?demo=` and sets `nexus_demo_mode` before the dashboard gate.
+   * Client-side transitions can skip or race the proxy and redirect guests to `/`.
    */
   const enterDemo = (suite: "dispatcher" | "carrier") => {
-    router.push(`/dashboard?demo=${suite}`);
+    window.location.assign(`/dashboard?demo=${suite}`);
   };
 
   return (
