@@ -6,7 +6,7 @@ import { MarketingPageBackdrop } from "@/components/landing/MarketingPageBackdro
 import { MarketingSiteHeader } from "@/components/marketing/MarketingSiteHeader";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 
-export default function PlatformGatewayPage() {
+export default function ProductTourPage() {
   const router = useRouter();
 
   /**

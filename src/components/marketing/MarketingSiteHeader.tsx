@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { PlatformPathModal } from "@/components/landing/PlatformPathModal";
+
+const PRODUCT_TOUR_HREF = "/product-tour" as const;
 
 type Props = {
   /**
@@ -16,7 +17,6 @@ type Props = {
 
 export function MarketingSiteHeader({ scrollDriven = true }: Props) {
   const pathname = usePathname();
-  const [pathOpen, setPathOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [solid, setSolid] = useState(!scrollDriven);
 
@@ -61,9 +61,8 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
       : "border-transparent bg-[#1A1C1E]/40 backdrop-blur-md"
     : "border-white/10 bg-[#0D0E10]/75 backdrop-blur-md";
 
-  const openProductTour = () => {
+  const closeMobileThenNavigate = () => {
     setMobileOpen(false);
-    setPathOpen(true);
   };
 
   return (
@@ -99,13 +98,12 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
             >
               Support
             </Link>
-            <button
-              type="button"
-              onClick={() => setPathOpen(true)}
+            <Link
+              href={PRODUCT_TOUR_HREF}
               className="transition-colors hover:text-white"
             >
               Product Tour
-            </button>
+            </Link>
             <Link
               href="mailto:info@nexusfreight.tech?subject=Demo%20Request"
               className="rounded-md border border-white/25 bg-white/5 px-3 py-1.5 font-semibold text-white backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/10"
@@ -155,63 +153,61 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
           />
           <div className="relative z-10 ml-auto flex h-full w-full max-w-full flex-col bg-[#1A1C1E] shadow-2xl transition-transform duration-300 ease-out">
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-            <Link
-              href="/"
-              className="text-lg font-bold tracking-tight text-[#007bff]"
-              onClick={() => setMobileOpen(false)}
-            >
-              NexusFreight
-            </Link>
-            <button
-              type="button"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-              aria-label="Close menu"
-              onClick={() => setMobileOpen(false)}
-            >
-              <X className="h-6 w-6" aria-hidden />
-            </button>
+              <Link
+                href="/"
+                className="text-lg font-bold tracking-tight text-[#007bff]"
+                onClick={() => setMobileOpen(false)}
+              >
+                NexusFreight
+              </Link>
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close menu"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="h-6 w-6" aria-hidden />
+              </button>
             </div>
 
             <nav
               className="flex flex-1 flex-col gap-1 px-4 pb-10 pt-6"
               aria-label="Mobile"
             >
-            <button
-              type="button"
-              onClick={openProductTour}
-              className="min-h-[52px] rounded-xl px-4 py-4 text-left text-xl font-semibold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
-            >
-              Demo
-            </button>
-            <Link
-              href="/resources/support"
-              className="min-h-[52px] rounded-xl px-4 py-4 text-xl font-semibold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
-              onClick={() => setMobileOpen(false)}
-            >
-              Support
-            </Link>
-            <Link
-              href="/help"
-              className="min-h-[52px] rounded-xl px-4 py-4 text-xl font-semibold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
-              onClick={() => setMobileOpen(false)}
-            >
-              Help Center
-            </Link>
-            <div className="mt-6 px-2">
               <Link
-                href="/dashboard"
-                className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#3B82F6] px-4 text-base font-bold text-white shadow-lg shadow-[#3B82F6]/25 transition-colors hover:bg-[#2563EB]"
+                href={PRODUCT_TOUR_HREF}
+                className="min-h-[52px] rounded-xl px-4 py-4 text-xl font-semibold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+                onClick={closeMobileThenNavigate}
+              >
+                Product Tour
+              </Link>
+              <Link
+                href="/resources/support"
+                className="min-h-[52px] rounded-xl px-4 py-4 text-xl font-semibold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
                 onClick={() => setMobileOpen(false)}
               >
-                Login
+                Support
               </Link>
-            </div>
+              <Link
+                href="/help"
+                className="min-h-[52px] rounded-xl px-4 py-4 text-xl font-semibold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+                onClick={() => setMobileOpen(false)}
+              >
+                Help Center
+              </Link>
+              <div className="mt-6 px-2">
+                <Link
+                  href="/dashboard"
+                  className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#3B82F6] px-4 text-base font-bold text-white shadow-lg shadow-[#3B82F6]/25 transition-colors hover:bg-[#2563EB]"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Login
+                </Link>
+              </div>
             </nav>
           </div>
         </div>
       ) : null}
-
-      <PlatformPathModal open={pathOpen} onClose={() => setPathOpen(false)} />
     </>
   );
 }
