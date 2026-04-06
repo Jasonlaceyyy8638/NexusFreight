@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "public/mapbox-gl-csp-worker.js",
+    "scripts/copy-mapbox-worker.js",
   ]),
 ]);
 

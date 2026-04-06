@@ -1,65 +1,145 @@
-import Image from "next/image";
+import Link from "next/link";
+import { FeatureCardsGrid } from "@/components/landing/FeatureCardsGrid";
+import { HeroPlatformCTA } from "@/components/landing/HeroPlatformCTA";
+import { HeroProductPreview } from "@/components/landing/HeroProductPreview";
+import { ImpactStatsBar } from "@/components/landing/ImpactStatsBar";
+import { IntegrationPartnersSection } from "@/components/landing/IntegrationPartnersSection";
+import { LandingFaqAccordion } from "@/components/landing/LandingFaqAccordion";
+import { MarketingNav } from "@/components/landing/MarketingNav";
+import { MarketingPageBackdrop } from "@/components/landing/MarketingPageBackdrop";
+import { SecurityDataTrustSection } from "@/components/landing/SecurityDataTrustSection";
+import { SiteFooter } from "@/components/landing/SiteFooter";
+import { WhoWeServeSection } from "@/components/landing/WhoWeServeSection";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="relative flex min-h-screen flex-col bg-[#0D0E10] text-white">
+      <MarketingPageBackdrop />
+
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <MarketingNav />
+
+        <main className="flex flex-1 flex-col">
+          <section
+            className="relative overflow-hidden"
+            aria-labelledby="hero-heading"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div className="relative isolate min-h-[min(78vh,820px)]">
+              <video
+                className="absolute inset-0 h-full w-full object-cover opacity-40"
+                autoPlay
+                muted
+                loop
+                playsInline
+                poster="https://images.pexels.com/videos/3045163/free-video-3045163.jpg?auto=compress&cs=tinysrgb&w=1920"
+              >
+                <source
+                  src="https://videos.pexels.com/video-files/3045163/3045163-uhd_2560_1440_25fps.mp4"
+                  type="video/mp4"
+                />
+              </video>
+              <div
+                className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-[#0D0E10]/90 via-[#0D0E10]/85 to-[#0D0E10]"
+                aria-hidden
+              />
+              <div className="relative z-10 flex w-full flex-col items-center px-6 pb-20 pt-20 sm:pt-24">
+                <div className="mx-auto max-w-4xl text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400">
+                    NexusFreight
+                  </p>
+                  <h1
+                    id="hero-heading"
+                    className="mt-5 text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.45)] sm:text-5xl md:text-6xl lg:text-[3.25rem]"
+                  >
+                    The Unified Operating System for Modern Logistics.
+                  </h1>
+                  <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-relaxed text-slate-300 sm:text-lg">
+                    Real-time ELD integration, automated driver dispatch, and instant
+                    carrier settlements. Built for the office, engineered for the road.
+                  </p>
+                  <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
+                    <HeroPlatformCTA />
+                    <Link
+                      href="mailto:info@nexusfreight.tech?subject=Demo%20Request"
+                      className="inline-flex min-w-[168px] items-center justify-center rounded-md border border-white/25 bg-white/5 px-8 py-3.5 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/10"
+                    >
+                      Request Demo
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="mt-14 w-full max-w-none sm:mt-16">
+                  <HeroProductPreview />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <ImpactStatsBar />
+
+          <IntegrationPartnersSection />
+
+          <WhoWeServeSection />
+
+          <section
+            id="features"
+            className="border-t border-white/[0.06] px-6 py-20 font-[family-name:var(--font-inter)] sm:py-28"
+            aria-labelledby="features-heading"
           >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <div className="mx-auto max-w-6xl text-center">
+              <h2
+                id="features-heading"
+                className="text-3xl font-semibold tracking-tight text-white sm:text-4xl"
+              >
+                Built for serious operations
+              </h2>
+              <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-400">
+                Three operational pillars—clear hierarchy, Inter typography,
+                and proof in the product.
+              </p>
+            </div>
+            <div className="mx-auto mt-14 max-w-6xl sm:mt-16">
+              <FeatureCardsGrid />
+            </div>
+            <p className="mx-auto mt-12 max-w-xl text-center text-sm text-slate-500">
+              Need fleet visibility?{" "}
+              <Link
+                href="/resources/live-map"
+                className="font-medium text-slate-300 underline decoration-white/15 underline-offset-4 transition-colors hover:text-[#3B82F6] hover:decoration-[#3B82F6]/40"
+              >
+                Explore the Live Map
+              </Link>
+            </p>
+          </section>
+
+          <SecurityDataTrustSection />
+
+          <LandingFaqAccordion />
+
+          <section className="border-t border-white/[0.06] px-6 py-20 font-sans sm:py-24">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm text-slate-500">
+                Questions about ELD, RLS, or FMCSA verification?{" "}
+                <Link
+                  href="/resources/security"
+                  className="font-medium text-slate-300 transition-colors hover:text-blue-500"
+                >
+                  Security &amp; RLS
+                </Link>
+                {" · "}
+                <Link
+                  href="/help"
+                  className="font-medium text-slate-300 transition-colors hover:text-blue-500"
+                >
+                  Help Center
+                </Link>
+              </p>
+            </div>
+          </section>
+        </main>
+
+        <SiteFooter />
+      </div>
     </div>
   );
 }

@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# Generated from mapbox-gl (see scripts/copy-mapbox-worker.js)
+/public/mapbox-gl-csp-worker.js
+
 # production
 /build
 
