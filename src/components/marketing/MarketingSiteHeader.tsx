@@ -120,7 +120,7 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
               Join the Beta
             </Link>
             <Link
-              href="/dashboard"
+              href="/auth/login"
               className="rounded-md border border-white/20 px-3 py-1.5 font-medium text-slate-200 transition-colors hover:border-white/40 hover:text-white"
             >
               Sign in
@@ -200,11 +200,11 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
               </Link>
               <div className="mt-6 px-2">
                 <Link
-                  href="/dashboard"
+                  href="/auth/login"
                   className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#3B82F6] px-4 text-base font-bold text-white shadow-lg shadow-[#3B82F6]/25 transition-colors hover:bg-[#2563EB]"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Login
+                  Sign in
                 </Link>
               </div>
             </nav>

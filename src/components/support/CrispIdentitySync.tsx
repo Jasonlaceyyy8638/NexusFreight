@@ -45,7 +45,8 @@ function pushIdentityToCrisp(input: {
   } else {
     pairs.push(["trial_expiry", ""]);
   }
-  q.push(["set", "session:data", pairs]);
+  // Crisp expects: ["set", "session:data", [[ [k,v], ... ]]] (nested array per docs).
+  q.push(["set", "session:data", [pairs]]);
 }
 
 export function CrispIdentitySync() {

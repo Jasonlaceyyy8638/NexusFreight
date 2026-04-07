@@ -8,7 +8,6 @@ import { IntegrationPartnersSection } from "@/components/landing/IntegrationPart
 import { LandingFaqAccordion } from "@/components/landing/LandingFaqAccordion";
 import { LandingLeadCapture } from "@/components/landing/LandingLeadCapture";
 import { BetaLaunchBanner } from "@/components/landing/BetaLaunchBanner";
-import { DownloadDesktopCta } from "@/components/pwa/DownloadDesktopCta";
 import { MarketingNav } from "@/components/landing/MarketingNav";
 import { MarketingPageBackdrop } from "@/components/landing/MarketingPageBackdrop";
 import { NativeDriverAppSection } from "@/components/landing/NativeDriverAppSection";
@@ -83,8 +82,6 @@ export default function Home() {
           </section>
 
           <ImpactStatsBar />
-
-          <DownloadDesktopCta />
 
           <IntegrationPartnersSection />
 
