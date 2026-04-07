@@ -14,10 +14,12 @@ export function DashboardShell({
   children,
   demoSession,
   serverInteractiveDemoBanner,
+  showNexusControlNav = false,
 }: {
   children: ReactNode;
   demoSession: InteractiveDemoVariant | null;
   serverInteractiveDemoBanner: boolean;
+  showNexusControlNav?: boolean;
 }) {
   const {
     userRole,
@@ -37,7 +39,11 @@ export function DashboardShell({
 
   return (
     <div className="flex min-h-[100dvh] w-full min-w-0 bg-[#1A1C1E] text-white">
-      {userRole === "carrier" ? <CarrierSidebar /> : <DispatcherSidebar />}
+      {userRole === "carrier" ? (
+        <CarrierSidebar showNexusControlNav={showNexusControlNav} />
+      ) : (
+        <DispatcherSidebar showNexusControlNav={showNexusControlNav} />
+      )}
       <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col pl-64">
         <header className="sticky top-0 z-[95] flex h-10 shrink-0 items-center justify-end border-b border-white/10 bg-[#1A1C1E]/95 px-4 backdrop-blur-sm">
           <DashboardNotificationBell />

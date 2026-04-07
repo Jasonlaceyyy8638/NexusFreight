@@ -32,10 +32,13 @@ export function DashboardLayoutClient({
   children,
   demoSession = null,
   serverInteractiveDemoBanner = false,
+  showNexusControlNav = false,
 }: {
   children: ReactNode;
   demoSession?: InteractiveDemoVariant | null;
   serverInteractiveDemoBanner?: boolean;
+  /** Signed-in user is platform admin (Nexus Control). From server layout. */
+  showNexusControlNav?: boolean;
 }) {
   return (
     <DashboardDataProvider demoSession={demoSession}>
@@ -43,6 +46,7 @@ export function DashboardLayoutClient({
       <DashboardShell
         demoSession={demoSession}
         serverInteractiveDemoBanner={serverInteractiveDemoBanner}
+        showNexusControlNav={showNexusControlNav}
       >
         {children}
       </DashboardShell>

@@ -9,6 +9,7 @@ import {
   LogOut,
   Map,
   Settings,
+  Shield,
   Truck,
   UserCog,
   type LucideIcon,
@@ -52,7 +53,11 @@ function linkActive(pathname: string, href: string, exact?: boolean) {
   return pathname.startsWith(`${href}/`);
 }
 
-export function DispatcherSidebar() {
+export function DispatcherSidebar({
+  showNexusControlNav = false,
+}: {
+  showNexusControlNav?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -134,6 +139,35 @@ export function DispatcherSidebar() {
           );
         })}
       </nav>
+
+      {showNexusControlNav ? (
+        <div className="shrink-0 border-t border-violet-500/20 bg-gradient-to-b from-violet-950/25 to-transparent px-2 py-3">
+          <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-violet-300/90">
+            Platform
+          </p>
+          <Link
+            href="/admin/control-center"
+            className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+              pathname.startsWith("/admin")
+                ? "border-violet-400/40 bg-violet-950/40 text-white"
+                : "border-violet-500/25 bg-violet-950/20 text-slate-200 hover:border-violet-400/35 hover:bg-violet-950/35"
+            }`}
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <Shield
+                className="h-[18px] w-[18px] shrink-0 text-violet-400"
+                strokeWidth={2}
+                aria-hidden
+              />
+              Nexus Control
+            </span>
+            <span className="pl-[26px] text-[11px] font-normal leading-snug text-violet-200/70">
+              Customers, trials, billing, org insights, audit — corporate support
+              console
+            </span>
+          </Link>
+        </div>
+      ) : null}
 
       <div className="shrink-0 border-t border-white/10 p-3">
         <SidebarPwaInstallButton />

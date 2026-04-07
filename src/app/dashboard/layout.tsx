@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { DashboardLayoutClient } from "@/components/dashboard/DashboardLayoutClient";
 import type { InteractiveDemoVariant } from "@/lib/demo_data";
+import { getAdminUserOrNull } from "@/lib/admin/require-admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({
@@ -26,11 +27,14 @@ export default async function DashboardLayout({
   const serverInteractiveDemoBanner =
     Boolean(demoSession) && !serverAuthUserId;
 
+  const nexusControlAdmin = (await getAdminUserOrNull()) != null;
+
   return (
     <div className="min-h-[100dvh] w-full bg-[#1A1C1E]">
       <DashboardLayoutClient
         demoSession={demoSession}
         serverInteractiveDemoBanner={serverInteractiveDemoBanner}
+        showNexusControlNav={nexusControlAdmin}
       >
         {children}
       </DashboardLayoutClient>

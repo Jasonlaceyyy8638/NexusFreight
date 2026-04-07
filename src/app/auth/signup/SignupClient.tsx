@@ -452,8 +452,8 @@ export function SignupClient() {
 
           <p className="text-center text-sm text-slate-500">
             Already have access?{" "}
-            <Link href="/dashboard" className="text-[#3395ff] hover:underline">
-              Open dashboard
+            <Link href="/auth/login" className="text-[#3395ff] hover:underline">
+              Sign in
             </Link>
           </p>
         </form>
