@@ -144,5 +144,24 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/trial-expired", request.url));
   }
 
+  const stripeConfigured = Boolean(
+    process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_PRICE_ID?.trim()
+  );
+
+  if (
+    user &&
+    !demoBrowsing &&
+    stripeConfigured &&
+    profile != null &&
+    profile.role !== "Driver" &&
+    !profile.stripe_subscription_id?.trim() &&
+    accessAllowed(profile) &&
+    path.startsWith("/dashboard")
+  ) {
+    return NextResponse.redirect(
+      new URL("/auth/complete-subscription", request.url)
+    );
+  }
+
   return response;
 }

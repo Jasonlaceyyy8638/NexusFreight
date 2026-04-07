@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
 import { MarketingNav } from "@/components/landing/MarketingNav";
@@ -15,6 +15,7 @@ const inputClass =
   "mt-1.5 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
 
 export function SignupClient() {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
   const [role, setRole] = useState<RoleChoice>(null);
@@ -100,8 +101,9 @@ export function SignupClient() {
 
     setBusy(true);
     try {
+      let signUpResult: Awaited<ReturnType<typeof supabase.auth.signUp>>;
       if (role === "dispatcher") {
-        const { error } = await supabase.auth.signUp({
+        signUpResult = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -113,14 +115,13 @@ export function SignupClient() {
             },
           },
         });
-        if (error) throw error;
       } else {
         if (fmcsa.status !== "success") {
           setFormError("FMCSA data is not ready. Try again.");
           return;
         }
         const d = fmcsa.data;
-        const { error } = await supabase.auth.signUp({
+        signUpResult = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -134,10 +135,15 @@ export function SignupClient() {
             },
           },
         });
-        if (error) throw error;
+      }
+      if (signUpResult.error) throw signUpResult.error;
+      if (signUpResult.data.session) {
+        router.push("/auth/complete-subscription");
+        router.refresh();
+        return;
       }
       setDoneMessage(
-        "Account created. You can sign in from the marketing site or open the dashboard once your email is confirmed (if confirmation is enabled)."
+        "Account created. After you confirm your email, sign in — you’ll be prompted to finish Stripe Checkout (trial aligned to your plan; usually nothing due today, no card until billing)."
       );
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Sign up failed");

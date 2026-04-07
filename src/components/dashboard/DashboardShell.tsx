@@ -132,13 +132,9 @@ export function DashboardShell({
           effectiveNexusControlNav ? (
             <div className="sticky top-10 z-[45] border-b border-violet-500/25 bg-violet-950/35 px-4 py-2.5 text-center text-[11px] font-medium leading-snug text-violet-100/95 backdrop-blur-md sm:px-6 sm:text-xs">
               <span className="block sm:inline">
-                You are signed in — auth is fine. This banner means your{" "}
-                <strong className="font-semibold text-white">profile row</strong>{" "}
-                in the database has no{" "}
-                <code className="rounded border border-white/10 bg-black/30 px-1 py-0.5 text-[10px] text-violet-200/90">
-                  org_id
-                </code>{" "}
-                yet, so Loads/Carriers have nowhere to attach.
+                You&apos;re signed in, but this login isn&apos;t tied to a{" "}
+                <strong className="font-semibold text-white">company workspace</strong>{" "}
+                yet—Loads and Carriers stay empty until it is.
               </span>{" "}
               <span className="block sm:mt-1 sm:inline">
                 Use{" "}
@@ -148,9 +144,8 @@ export function DashboardShell({
                 >
                   Nexus Control
                 </Link>{" "}
-                for customer-wide tools. To use this dashboard as a specific
-                company, link this account to an organization (signup flow or
-                Supabase <code className="text-[10px]">profiles.org_id</code>).
+                for cross-customer support. To use this dashboard for one fleet,
+                finish signup or have your workspace linked in the database.
               </span>
             </div>
           ) : (
