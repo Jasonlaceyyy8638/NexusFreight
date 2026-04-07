@@ -20,6 +20,7 @@ export function DashboardLoadsPage() {
     permissions,
   } = useDashboardData();
   const [modalOpen, setModalOpen] = useState(false);
+  const [workspaceRequiredOpen, setWorkspaceRequiredOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-6 py-10">
