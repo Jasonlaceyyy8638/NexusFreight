@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { PermissionToggle } from "@/components/dashboard/PermissionToggle";
@@ -319,10 +320,36 @@ export function DashboardTeamManagementPage() {
     );
   }
 
-  if (!supabase || !orgId) {
+  if (!supabase) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center text-sm text-slate-500">
         Sign in to manage team permissions for your organization.
+      </div>
+    );
+  }
+
+  if (!orgId) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-6 py-16 text-center text-sm text-slate-400">
+        <p>
+          No organization workspace is linked to this account yet. Team invites
+          and permissions are available after your company workspace is created.
+        </p>
+        <p>
+          <Link
+            href="/auth/signup"
+            className="font-semibold text-[#3395ff] hover:underline"
+          >
+            Continue signup
+          </Link>
+          {" · "}
+          <a
+            href="mailto:info@nexusfreight.tech"
+            className="font-semibold text-[#3395ff] hover:underline"
+          >
+            Contact support
+          </a>
+        </p>
       </div>
     );
   }

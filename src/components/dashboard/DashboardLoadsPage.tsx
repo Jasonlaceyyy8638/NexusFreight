@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { LoadEntryModal } from "@/components/dashboard/LoadEntryModal";
+import { WorkspaceRequiredModal } from "@/components/dashboard/WorkspaceRequiredModal";
 import { LoadsTable } from "@/components/dashboard/LoadsTable";
 
 export function DashboardLoadsPage() {
@@ -38,13 +39,23 @@ export function DashboardLoadsPage() {
         </div>
         <button
           type="button"
-          disabled={!permissions.can_dispatch_loads}
-          title={
-            permissions.can_dispatch_loads
-              ? undefined
-              : "Requires dispatch permission"
+          disabled={
+            Boolean(orgId) && !permissions.can_dispatch_loads
           }
-          onClick={() => setModalOpen(true)}
+          title={
+            !orgId
+              ? "Organization workspace required"
+              : !permissions.can_dispatch_loads
+                ? "Requires dispatch permission"
+                : undefined
+          }
+          onClick={() => {
+            if (!orgId) {
+              setWorkspaceRequiredOpen(true);
+              return;
+            }
+            setModalOpen(true);
+          }}
           className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           New load
@@ -61,6 +72,13 @@ export function DashboardLoadsPage() {
         showDocuments
         showCarrierColumn={!isCarrierOrg}
         allowDispatch={permissions.can_dispatch_loads}
+      />
+
+      <WorkspaceRequiredModal
+        open={workspaceRequiredOpen}
+        onClose={() => setWorkspaceRequiredOpen(false)}
+        featureLabel="create loads"
+        onRetry={() => void refresh()}
       />
 
       {orgId ? (

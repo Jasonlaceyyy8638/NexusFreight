@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AddCarrierModal } from "@/components/dashboard/AddCarrierModal";
+import { WorkspaceRequiredModal } from "@/components/dashboard/WorkspaceRequiredModal";
 import { EditCarrierModal } from "@/components/dashboard/EditCarrierModal";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
@@ -26,6 +27,7 @@ export function DashboardCarriersPage() {
   } = useDashboardData();
   const router = useRouter();
   const [addCarrierOpen, setAddCarrierOpen] = useState(false);
+  const [workspaceRequiredOpen, setWorkspaceRequiredOpen] = useState(false);
   const [editCarrier, setEditCarrier] = useState<(typeof carriers)[0] | null>(
     null
   );
@@ -149,6 +151,10 @@ export function DashboardCarriersPage() {
               );
               return;
             }
+            if (!orgId) {
+              setWorkspaceRequiredOpen(true);
+              return;
+            }
             setAddCarrierOpen(true);
           }}
           className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10"
@@ -262,6 +268,13 @@ export function DashboardCarriersPage() {
           </li>
         ))}
       </ul>
+
+      <WorkspaceRequiredModal
+        open={workspaceRequiredOpen}
+        onClose={() => setWorkspaceRequiredOpen(false)}
+        featureLabel="add carriers to your workspace"
+        onRetry={() => void refresh()}
+      />
 
       {orgId && supabase ? (
         <AddCarrierModal

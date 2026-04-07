@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CarrierSidebar } from "@/components/dashboard/CarrierSidebar";
@@ -128,17 +129,45 @@ export function DashboardShell({
         </header>
         <FoundingMemberBetaNotice />
         {onboardingRequired ? (
-          <div className="sticky top-10 z-[45] border-b border-sky-500/25 bg-sky-950/40 px-4 py-2.5 text-center text-[11px] font-medium leading-snug text-sky-100/95 backdrop-blur-md sm:px-6 sm:text-xs">
-            You&apos;re signed in, but no organization workspace is linked to this
-            account yet. Complete signup or contact{" "}
-            <a
-              href="mailto:info@nexusfreight.tech"
-              className="font-semibold text-sky-300 underline decoration-sky-400/30 underline-offset-2 hover:decoration-sky-300/60"
-            >
-              info@nexusfreight.tech
-            </a>{" "}
-            if this persists.
-          </div>
+          effectiveNexusControlNav ? (
+            <div className="sticky top-10 z-[45] border-b border-violet-500/25 bg-violet-950/35 px-4 py-2.5 text-center text-[11px] font-medium leading-snug text-violet-100/95 backdrop-blur-md sm:px-6 sm:text-xs">
+              <span className="block sm:inline">
+                You are signed in — auth is fine. This banner means your{" "}
+                <strong className="font-semibold text-white">profile row</strong>{" "}
+                in the database has no{" "}
+                <code className="rounded border border-white/10 bg-black/30 px-1 py-0.5 text-[10px] text-violet-200/90">
+                  org_id
+                </code>{" "}
+                yet, so Loads/Carriers have nowhere to attach.
+              </span>{" "}
+              <span className="block sm:mt-1 sm:inline">
+                Use{" "}
+                <Link
+                  href="/admin/control-center"
+                  className="font-semibold text-violet-300 underline decoration-violet-400/40 underline-offset-2 hover:text-white"
+                >
+                  Nexus Control
+                </Link>{" "}
+                for customer-wide tools. To use this dashboard as a specific
+                company, link this account to an organization (signup flow or
+                Supabase <code className="text-[10px]">profiles.org_id</code>).
+              </span>
+            </div>
+          ) : (
+            <div className="sticky top-10 z-[45] border-b border-sky-500/25 bg-sky-950/40 px-4 py-2.5 text-center text-[11px] font-medium leading-snug text-sky-100/95 backdrop-blur-md sm:px-6 sm:text-xs">
+              You&apos;re signed in, but your account isn&apos;t linked to a{" "}
+              <strong className="font-semibold text-white">company workspace</strong>{" "}
+              in our database yet (missing organization on your profile). Finish
+              checkout/signup so we can create your org, or contact{" "}
+              <a
+                href="mailto:info@nexusfreight.tech"
+                className="font-semibold text-sky-300 underline decoration-sky-400/30 underline-offset-2 hover:decoration-sky-300/60"
+              >
+                info@nexusfreight.tech
+              </a>{" "}
+              if you already paid and still see this.
+            </div>
+          )
         ) : showInteractiveStrip ? (
           <InteractiveDemoBanner variant={interactiveBannerVariant} />
         ) : (
