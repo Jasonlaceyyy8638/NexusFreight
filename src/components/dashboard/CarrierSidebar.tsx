@@ -74,8 +74,10 @@ function linkActive(pathname: string, href: string, exact?: boolean) {
 
 export function CarrierSidebar({
   showNexusControlNav = false,
+  onNavLinkClick,
 }: {
   showNexusControlNav?: boolean;
+  onNavLinkClick?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -123,9 +125,13 @@ export function CarrierSidebar({
   }, [supabase, router]);
 
   return (
-    <aside className="fixed left-0 top-10 z-[80] flex h-[calc(100dvh-2.5rem)] w-64 flex-col border-r border-white/10 bg-[#1A1C1E] text-white">
+    <aside className="flex h-full min-h-0 w-full flex-col border-r border-white/10 bg-[#1A1C1E] text-white">
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
-        <Link href="/dashboard" className="block rounded-xl outline-none ring-offset-2 ring-offset-[#1A1C1E] focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50">
+        <Link
+          href="/dashboard"
+          onClick={() => onNavLinkClick?.()}
+          className="block rounded-xl outline-none ring-offset-2 ring-offset-[#1A1C1E] focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50"
+        >
           <NexusFreightLogo className="h-8 w-auto" />
           <span className="mt-0.5 block text-[10px] font-semibold tracking-[0.22em] text-emerald-400/90">
             FLEET COMMAND
@@ -140,6 +146,7 @@ export function CarrierSidebar({
             <Link
               key={href}
               href={href}
+              onClick={() => onNavLinkClick?.()}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
                   ? "bg-[#007bff]/18 text-white shadow-[inset_3px_0_0_0_#007bff]"
@@ -164,6 +171,7 @@ export function CarrierSidebar({
           </p>
           <Link
             href="/admin/control-center"
+            onClick={() => onNavLinkClick?.()}
             className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
               pathname.startsWith("/admin")
                 ? "border-violet-400/40 bg-violet-950/40 text-white"
@@ -203,13 +211,17 @@ export function CarrierSidebar({
           </button>
         </div>
         <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[10px] text-slate-600">
-          <Link href="/help" className="hover:text-slate-400">
+          <Link
+            href="/help"
+            onClick={() => onNavLinkClick?.()}
+            className="hover:text-slate-400"
+          >
             Help
           </Link>
           <a href="mailto:info@nexusfreight.tech" className="hover:text-slate-400">
             Support
           </a>
-          <Link href="/" className="hover:text-slate-400">
+          <Link href="/" onClick={() => onNavLinkClick?.()} className="hover:text-slate-400">
             Site
           </Link>
         </div>

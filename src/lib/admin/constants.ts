@@ -16,3 +16,23 @@ export const ADMIN_CONTROL_EMAIL: string = resolveAdminControlEmail();
 export function isAdminEmail(email: string | null | undefined): boolean {
   return (email ?? "").trim().toLowerCase() === ADMIN_CONTROL_EMAIL;
 }
+
+/** Sidebar “Nexus Control” link: only this signed-in user (corporate support). */
+export const CORPORATE_NEXUS_CONTROL_SIDEBAR_EMAIL =
+  "info@nexusfreight.tech" as const;
+
+export function isCorporateNexusControlSidebarUser(
+  email: string | null | undefined
+): boolean {
+  return (
+    (email ?? "").trim().toLowerCase() ===
+    CORPORATE_NEXUS_CONTROL_SIDEBAR_EMAIL
+  );
+}
+
+/** Nexus Control page + `/api/admin/*`: env admin or corporate `info@` account. */
+export function canAccessNexusControlAdmin(
+  email: string | null | undefined
+): boolean {
+  return isAdminEmail(email) || isCorporateNexusControlSidebarUser(email);
+}

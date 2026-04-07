@@ -25,8 +25,26 @@ function resetCrispSession(): void {
   q.push(["do", "session:reset"]);
 }
 
+/** Crisp rejects some emails / nicknames and throws "Invalid data" in the chat client. */
+function isLikelyCrispSafeEmail(email: string): boolean {
+  const t = email.trim();
+  if (t.length < 3 || t.length > 254) return false;
+  // Pragmatic check; Crisp's validator is stricter than RFC.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
+
+function crispSafeNickname(raw: string, fallback: string): string {
+  const s = raw
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 128);
+  return s || fallback;
+}
+
 /**
  * Pushes Supabase user + profile into Crisp for support context.
+ * Session data values are strings only (Crisp KB examples & client validation are string-heavy).
  * @see https://docs.crisp.chat/guides/chatbox-sdks/web-sdk/dollar-crisp/
  */
 function pushIdentityToCrisp(input: {
@@ -36,16 +54,18 @@ function pushIdentityToCrisp(input: {
   trial_expiry: string | null;
 }): void {
   const q = ensureCrispQueue();
-  q.push(["set", "user:email", [input.email]]);
+  const email = input.email.trim();
+  if (isLikelyCrispSafeEmail(email)) {
+    q.push(["set", "user:email", [email]]);
+  }
   q.push(["set", "user:nickname", [input.nickname]]);
 
-  const pairs: [string, string | boolean][] = [["is_beta", input.is_beta]];
-  if (input.trial_expiry) {
-    pairs.push(["trial_expiry", input.trial_expiry]);
-  } else {
-    pairs.push(["trial_expiry", ""]);
+  const pairs: [string, string][] = [["is_beta", input.is_beta ? "true" : "false"]];
+  const trial = input.trial_expiry?.trim();
+  if (trial) {
+    pairs.push(["trial_expiry", trial]);
   }
-  // Crisp expects: ["set", "session:data", [[ [k,v], ... ]]] (nested array per docs).
+  // Multi-key shape: ["set", "session:data", [[["k","v"], ...]]]
   q.push(["set", "session:data", [pairs]]);
 }
 
@@ -81,14 +101,23 @@ export function CrispIdentitySync() {
       }
 
       const fullName = p?.full_name?.trim() || null;
-      const nickname =
+      const nicknameRaw =
         companyName || fullName || email.split("@")[0] || "User";
+      const nickname = crispSafeNickname(nicknameRaw, "User");
+
+      const trialRaw = p?.trial_ends_at;
+      const trialExpiry =
+        typeof trialRaw === "string"
+          ? trialRaw
+          : trialRaw != null
+            ? String(trialRaw)
+            : null;
 
       pushIdentityToCrisp({
         email: email.trim(),
         nickname,
         is_beta: Boolean(p?.is_beta_user),
-        trial_expiry: p?.trial_ends_at ?? null,
+        trial_expiry: trialExpiry,
       });
     }
 

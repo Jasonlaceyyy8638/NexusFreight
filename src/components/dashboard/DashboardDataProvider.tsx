@@ -95,6 +95,8 @@ export type DashboardDataContextValue = {
   authSessionUserId: string | null;
   /** False until initial `getSession` completes (avoid demo banner flash). */
   authSessionResolved: boolean;
+  /** Signed in but profile has no org — empty workspace, not seeded demo data. */
+  onboardingRequired: boolean;
   carriers: Carrier[];
   drivers: Driver[];
   loads: Load[];
@@ -202,6 +204,7 @@ export function DashboardDataProvider({
   const [isBetaUser, setIsBetaUser] = useState(false);
   const [hasStripeSubscription, setHasStripeSubscription] = useState(false);
   const [demoGateOpen, setDemoGateOpen] = useState(false);
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
 
   const openDemoAccountGate = useCallback(() => setDemoGateOpen(true), []);
 
@@ -257,6 +260,7 @@ export function DashboardDataProvider({
     };
 
     if (!supabase) {
+      setOnboardingRequired(false);
       setUsingDemo(true);
       setPermissions(PERMISSIONS_FULL_ACCESS);
       setProfileRole(null);
@@ -283,6 +287,7 @@ export function DashboardDataProvider({
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
+        setOnboardingRequired(false);
         const b = getInteractiveDemoBundle(demoSession);
         setUsingDemo(true);
         setInteractiveDemo(true);
@@ -301,13 +306,61 @@ export function DashboardDataProvider({
       setInteractiveDemoVariant(null);
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select(
-        "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id"
-      )
-      .single();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    const profileSelect =
+      "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id" as const;
+    const { data: profile } = authUser?.id
+      ? await supabase
+          .from("profiles")
+          .select(profileSelect)
+          .eq("id", authUser.id)
+          .maybeSingle()
+      : await supabase.from("profiles").select(profileSelect).maybeSingle();
+
     if (!profile?.org_id) {
+      if (authUser) {
+        setOnboardingRequired(true);
+        setUsingDemo(false);
+        setInteractiveDemo(false);
+        setInteractiveDemoVariant(null);
+        setOrgId(null);
+        setOrgType("Agency");
+        setCarriers([]);
+        setDrivers([]);
+        setLoads([]);
+        setTrucks([]);
+        setEldConnections([]);
+        setSelectedCarrierId(null);
+        setCurrentProfileId(profile?.id ?? null);
+        setProfileRole((profile?.role as ProfileRole) ?? null);
+        setTrialType((profile?.trial_type as TrialType) ?? null);
+        setTrialEndsAt(profile?.trial_ends_at ?? null);
+        setIsBetaUser(Boolean(profile?.is_beta_user));
+        setHasStripeSubscription(
+          Boolean(profile?.stripe_subscription_id?.trim())
+        );
+        if (profile?.id) {
+          const { data: permRow } = await supabase
+            .from("user_permissions")
+            .select("*")
+            .eq("profile_id", profile.id)
+            .maybeSingle();
+          setPermissions(
+            mergePermissionRow(
+              profile.role as ProfileRole,
+              permRow as Partial<DashboardPermissionFlags> | null
+            )
+          );
+        } else {
+          setPermissions(mergePermissionRow(null, null));
+        }
+        return;
+      }
+
+      setOnboardingRequired(false);
       setUsingDemo(true);
       setPermissions(PERMISSIONS_FULL_ACCESS);
       setProfileRole(null);
@@ -320,6 +373,8 @@ export function DashboardDataProvider({
       setOrgId(DEMO_ORG_ID);
       return;
     }
+
+    setOnboardingRequired(false);
     setUsingDemo(false);
     setOrgId(profile.org_id);
     setCurrentProfileId(profile.id);
@@ -646,6 +701,7 @@ export function DashboardDataProvider({
       interactiveDemoVariant,
       authSessionUserId,
       authSessionResolved,
+      onboardingRequired,
       carriers,
       drivers,
       loads,
@@ -679,6 +735,7 @@ export function DashboardDataProvider({
       interactiveDemoVariant,
       authSessionUserId,
       authSessionResolved,
+      onboardingRequired,
       carriers,
       drivers,
       loads,

@@ -146,12 +146,3 @@ export async function proxy(request: NextRequest) {
 
   return response;
 }
-
-export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/driver",
-    "/driver/:path*",
-    "/trial-expired",
-  ],
-};

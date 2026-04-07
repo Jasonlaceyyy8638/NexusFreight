@@ -11,12 +11,21 @@ import { isTeamAdmin } from "@/lib/permissions";
 
 export function DashboardSettingsPage() {
   const supabase = createClient();
-  const { interactiveDemo, profileRole, permissions, isCarrierOrg } =
-    useDashboardData();
+  const {
+    interactiveDemo,
+    usingDemo,
+    profileRole,
+    permissions,
+    isCarrierOrg,
+  } = useDashboardData();
   const dispatcherPhoneRequired =
     permissions.can_dispatch_loads || profileRole === "Dispatcher";
-  const showIntegrations =
-    interactiveDemo || isTeamAdmin(profileRole, permissions);
+  /** Demo uses full admin flags — still hide vendor / infra detail in preview. */
+  const showIntegrationsDetail =
+    !usingDemo &&
+    !interactiveDemo &&
+    isTeamAdmin(profileRole, permissions);
+  const isPreviewWorkspace = usingDemo || interactiveDemo;
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("");
@@ -212,20 +221,19 @@ export function DashboardSettingsPage() {
         </section>
       ) : null}
 
-      {showIntegrations ? (
+      {showIntegrationsDetail ? (
         <section className="rounded-xl border border-white/10 bg-[#16181A]/90 p-6">
           <h2 className="text-sm font-semibold text-white">
-            Services behind the scenes
+            Connected services
           </h2>
           <p className="mt-2 text-sm text-slate-400">
-            NexusFreight connects trusted providers for driver texts, email,
-            DOT carrier checks, and live maps. Your workspace is wired up when you
-            go live; keys stay on our systems and are not exposed here in your
-            browser.
+            Your live workspace uses trusted infrastructure for driver texts,
+            email, DOT carrier checks, and maps. Credentials stay on our servers,
+            not in your browser.
           </p>
           <ul className="mt-4 space-y-2 text-sm text-slate-300">
             <li className="flex justify-between gap-4 border-b border-white/5 py-2">
-              <span className="text-slate-400">Driver SMS (Twilio)</span>
+              <span className="text-slate-400">Driver text alerts</span>
               <span className="text-slate-500">Enabled with your workspace</span>
             </li>
             <li className="flex justify-between gap-4 border-b border-white/5 py-2">
@@ -233,7 +241,7 @@ export function DashboardSettingsPage() {
               <span className="text-slate-500">Enabled with your workspace</span>
             </li>
             <li className="flex justify-between gap-4 border-b border-white/5 py-2">
-              <span className="text-slate-400">FMCSA carrier verification</span>
+              <span className="text-slate-400">DOT / authority checks</span>
               <span className="text-slate-500">Enabled with your workspace</span>
             </li>
             <li className="flex justify-between gap-4 py-2">
@@ -243,6 +251,17 @@ export function DashboardSettingsPage() {
               </span>
             </li>
           </ul>
+        </section>
+      ) : isPreviewWorkspace ? (
+        <section className="rounded-xl border border-white/10 bg-[#16181A]/90 p-6">
+          <h2 className="text-sm font-semibold text-white">
+            Connected services
+          </h2>
+          <p className="mt-2 text-sm text-slate-400">
+            In a real account, NexusFreight handles driver texts, office email,
+            compliance checks, and live maps for you. This preview doesn&apos;t show
+            connection details or configuration.
+          </p>
         </section>
       ) : (
         <section className="rounded-xl border border-white/10 bg-[#16181A]/50 p-6">

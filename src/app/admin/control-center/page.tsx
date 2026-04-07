@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { isAdminEmail } from "@/lib/admin/constants";
+import { canAccessNexusControlAdmin } from "@/lib/admin/constants";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NexusControlClient } from "./NexusControlClient";
 
@@ -17,7 +17,7 @@ export default async function NexusControlPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user?.email || !isAdminEmail(user.email)) {
+  if (!user?.email || !canAccessNexusControlAdmin(user.email)) {
     notFound();
   }
 
