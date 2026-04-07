@@ -6,8 +6,9 @@
   --nf-accent: #007bff;
   --nf-neutral: #f8f9fa;
   --nf-border: #e2e8f0;
-  --background: #f8f9fa;
-  --foreground: #1a1c1e;
+  /* App shell default: dark (avoids light “gutter” beside dashboard flex columns). */
+  --background: #1a1c1e;
+  --foreground: #f8fafc;
 }
 
 @theme inline {

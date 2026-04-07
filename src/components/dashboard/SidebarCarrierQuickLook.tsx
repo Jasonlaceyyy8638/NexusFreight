@@ -4,11 +4,12 @@ import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { CopyableSlateValue } from "@/components/dashboard/CopyableSlateValue";
+import { carrierAuthorityAssignable } from "@/lib/carrier-authority";
+import type { Carrier } from "@/types/database";
 
-function authorityLabel(active: boolean | null | undefined) {
-  if (active === true) return "Active (FMCSA)";
-  if (active === false) return "Inactive (FMCSA)";
-  return "Unknown";
+function authorityLabel(c: Pick<Carrier, "compliance_status" | "is_active_authority">) {
+  if (carrierAuthorityAssignable(c)) return "Active (FMCSA)";
+  return "Inactive (FMCSA)";
 }
 
 export function SidebarCarrierQuickLook() {
@@ -87,14 +88,12 @@ export function SidebarCarrierQuickLook() {
                       Authority:{" "}
                       <span
                         className={
-                          c.is_active_authority === true
+                          carrierAuthorityAssignable(c)
                             ? "text-emerald-400/90"
-                            : c.is_active_authority === false
-                              ? "text-amber-400/90"
-                              : "text-slate-500"
+                            : "text-amber-400/90"
                         }
                       >
-                        {authorityLabel(c.is_active_authority)}
+                        {authorityLabel(c)}
                       </span>
                     </p>
                     <p className="text-[10px] text-slate-600">

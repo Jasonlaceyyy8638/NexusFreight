@@ -4,6 +4,7 @@ import {
   Building2,
   ClipboardList,
   FileText,
+  Headset,
   LayoutDashboard,
   LogOut,
   Map,
@@ -17,6 +18,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SidebarCarrierQuickLook } from "@/components/dashboard/SidebarCarrierQuickLook";
+import { SidebarPwaInstallButton } from "@/components/pwa/SidebarPwaInstallButton";
+import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
 
 type NavItem = {
   href: string;
@@ -33,6 +36,11 @@ const nav: NavItem[] = [
   { href: "/dashboard/fleet", label: "Fleet", icon: Truck },
   { href: "/dashboard/settlements", label: "Revenue & settlements", icon: FileText },
   { href: "/dashboard/team-management", label: "Team management", icon: UserCog },
+  {
+    href: "/dashboard/support-resources",
+    label: "Support & Resources",
+    icon: Headset,
+  },
   { href: "/dashboard/settings", label: "Settings", icon: Settings, exact: true },
 ];
 
@@ -91,12 +99,10 @@ export function DispatcherSidebar() {
   }, [supabase, router]);
 
   return (
-    <aside className="fixed left-0 top-10 z-[80] flex h-[calc(100vh-2.5rem)] w-64 flex-col border-r border-white/10 bg-[#1A1C1E] text-white">
+    <aside className="fixed left-0 top-10 z-[80] flex h-[calc(100dvh-2.5rem)] w-64 flex-col border-r border-white/10 bg-[#1A1C1E] text-white">
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
-        <Link href="/dashboard" className="block">
-          <span className="text-lg font-bold tracking-tight text-[#007bff]">
-            NexusFreight
-          </span>
+        <Link href="/dashboard" className="block rounded-xl outline-none ring-offset-2 ring-offset-[#1A1C1E] focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50">
+          <NexusFreightLogo className="h-8 w-auto" />
           <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-400/90">
             Command center
           </span>
@@ -130,6 +136,7 @@ export function DispatcherSidebar() {
       </nav>
 
       <div className="shrink-0 border-t border-white/10 p-3">
+        <SidebarPwaInstallButton />
         <div className="rounded-lg border border-white/10 bg-[#16181A]/90 px-3 py-2.5">
           <p className="truncate text-xs font-semibold text-slate-200">
             {displayName}

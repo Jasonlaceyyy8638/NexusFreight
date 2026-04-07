@@ -1,16 +1,36 @@
 /**
- * FMCSA QCMobile API — requires FMCSA_WEB_KEY (server-side only).
+ * FMCSA QCMobile API — requires FMCSA_WEB_KEY or FMCSA_WEBKEY (server-side only).
  * @see https://mobile.fmcsa.dot.gov/QCDevsite/docs/qcApi
  */
+
+import {
+  computeIsNewAuthority,
+  parseFmcsaAuthorityDate,
+} from "@/lib/fmcsa_authority";
 
 const FMCSA_BASE = "https://mobile.fmcsa.dot.gov/qc/services";
 
 export type FmcsaCompanyData = {
   legal_name: string;
+  /** DBA when present from FMCSA. */
+  dba_name: string;
   dot_number: string;
   mc_number: string;
   authority_status: "Active" | "Inactive";
+  /** Uppercase label for UI — must be ACTIVE to add carrier / assign loads. */
+  operating_status_display: "ACTIVE" | "INACTIVE";
+  /** Raw `allowToOperate === "Y"` from FMCSA. */
+  allowed_to_operate: boolean;
+  /** Full formatted physical address when available. */
   address: string;
+  /** City, ST for quick display. */
+  city_state: string;
+  /**
+   * ISO date YYYY-MM-DD from commonAuthorityStatusDate / authDate when present.
+   */
+  authority_date: string | null;
+  /** True when authority_date is set and under 90 days old (calendar days). */
+  is_new_authority: boolean;
 };
 
 export type FmcsaFetchResult =
@@ -26,7 +46,8 @@ export function normalizeMcDocket(input: string): string {
 }
 
 function getWebKey(): string | null {
-  const key = process.env.FMCSA_WEB_KEY?.trim();
+  const key =
+    process.env.FMCSA_WEB_KEY?.trim() || process.env.FMCSA_WEBKEY?.trim();
   return key && key.length > 0 ? key : null;
 }
 
@@ -41,19 +62,35 @@ function mapRecord(r: Record<string, unknown>): FmcsaCompanyData {
   const zip = r.phyZip != null ? String(r.phyZip) : "";
   const parts = [street, city, state, zip].filter(Boolean);
 
-  const legal =
-    (r.legalName != null && String(r.legalName).trim()) ||
-    (r.dbaName != null && String(r.dbaName).trim()) ||
-    "";
+  const legalRaw =
+    r.legalName != null ? String(r.legalName).trim() : "";
+  const dbaRaw = r.dbaName != null ? String(r.dbaName).trim() : "";
+  const legal = legalRaw || dbaRaw || "";
+
+  const cityState = [city, state].filter(Boolean).join(", ");
+
+  const authRaw =
+    r.commonAuthorityStatusDate ??
+    r.common_authority_status_date ??
+    r.authDate ??
+    r.auth_date;
+  const authority_date = parseFmcsaAuthorityDate(authRaw);
+  const is_new_authority = computeIsNewAuthority(authority_date);
 
   return {
     legal_name: legal,
+    dba_name: dbaRaw,
     dot_number:
       r.dotNumber != null ? String(r.dotNumber) : String(r["usdot"] ?? ""),
     mc_number:
       r.mcNumber != null ? String(r.mcNumber) : String(r.docketNumber ?? ""),
     authority_status: active ? "Active" : "Inactive",
+    operating_status_display: active ? "ACTIVE" : "INACTIVE",
+    allowed_to_operate: allow,
     address: parts.join(", "),
+    city_state: cityState,
+    authority_date,
+    is_new_authority,
   };
 }
 
@@ -111,7 +148,7 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
     return {
       ok: false,
       error:
-        "FMCSA_WEB_KEY is not configured. Add it to your server environment.",
+        "FMCSA_WEB_KEY (or FMCSA_WEBKEY) is not configured. Add it to your server environment.",
       code: "missing_key",
     };
   }
@@ -146,7 +183,11 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
         };
       }
       if (second.status === 401) {
-        return { ok: false, error: "FMCSA_WEB_KEY is invalid.", code: "unauthorized" };
+        return {
+          ok: false,
+          error: "FMCSA_WEB_KEY / FMCSA_WEBKEY is invalid.",
+          code: "unauthorized",
+        };
       }
       return {
         ok: false,
@@ -156,7 +197,11 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
     }
     payload = second.data;
   } else if (first.status === 401) {
-    return { ok: false, error: "FMCSA_WEB_KEY is invalid.", code: "unauthorized" };
+    return {
+      ok: false,
+      error: "FMCSA_WEB_KEY / FMCSA_WEBKEY is invalid.",
+      code: "unauthorized",
+    };
   } else {
     return {
       ok: false,
@@ -176,4 +221,13 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
   }
 
   return { ok: true, data };
+}
+
+/** Matches add-carrier / load-assignment rules: ACTIVE, allowed to operate, authority active. */
+export function isFmcsaOperatingActive(d: FmcsaCompanyData): boolean {
+  return (
+    d.operating_status_display === "ACTIVE" &&
+    d.allowed_to_operate &&
+    d.authority_status === "Active"
+  );
 }

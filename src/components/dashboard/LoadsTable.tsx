@@ -1,9 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { LoadStatusBadge } from "@/components/dashboard/LoadStatusBadge";
 import { blobToBase64 } from "@/lib/browser/blob-to-base64";
+import {
+  CARRIER_AUTHORITY_INACTIVE_TOOLTIP,
+  CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING,
+  carrierAuthorityAssignable,
+} from "@/lib/carrier-authority";
+import { LOAD_STATUS_LABELS } from "@/lib/load-status-labels";
+import type { QuickFireTemplateType } from "@/lib/sms/quick-fire-templates";
 import type { Carrier, Driver, Load, LoadStatus } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -24,6 +32,7 @@ type Props = {
 const ALL_LOAD_STATUSES: LoadStatus[] = [
   "draft",
   "dispatched",
+  "notification_sent",
   "in_transit",
   "delivered",
   "cancelled",
@@ -40,8 +49,12 @@ export function LoadsTable({
   showCarrierColumn = true,
   allowDispatch = true,
 }: Props) {
-  const { interactiveDemo, openDemoAccountGate, updateLoadStatus } =
+  const { interactiveDemo, openDemoAccountGate, updateLoadStatus, refresh } =
     useDashboardData();
+  const [alertBusyLoadId, setAlertBusyLoadId] = useState<string | null>(null);
+  const [alertSelectValue, setAlertSelectValue] = useState<
+    Record<string, string>
+  >({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyDoc, setBusyDoc] = useState<string | null>(null);
   const [driverEmailDraft, setDriverEmailDraft] = useState<Record<string, string>>(
@@ -112,6 +125,59 @@ export function LoadsTable({
     }
   };
 
+  const sendQuickFireSms = async (
+    load: Load,
+    templateType: QuickFireTemplateType,
+    newTime?: string
+  ) => {
+    if (interactiveDemo) {
+      setDocMessage(
+        templateType === "dispatch"
+          ? 'Demo preview: a "new load" text would go to this driver\'s phone. No SMS is sent here—create an account to message drivers for real.'
+          : templateType === "cancelled"
+            ? "Demo preview: a cancellation text would go to the driver and the load would be marked cancelled. No SMS is sent in preview."
+            : "Demo preview: a delay update would go to the driver with your new pickup window. No SMS is sent in preview."
+      );
+      openDemoAccountGate();
+      return;
+    }
+    setAlertBusyLoadId(load.id);
+    setDocMessage(null);
+    try {
+      const res = await fetch("/api/dispatch/quick-fire-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loadId: load.id,
+          templateType,
+          ...(templateType === "delayed" ? { newTime: newTime ?? "" } : {}),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDocMessage(
+          typeof body.error === "string" ? body.error : "Quick Alert failed."
+        );
+        return;
+      }
+      if (templateType === "cancelled") {
+        await updateLoadStatus(load.id, "cancelled");
+      }
+      await refresh();
+      setDocMessage(
+        templateType === "dispatch"
+          ? "Dispatch (New Load) SMS sent."
+          : templateType === "cancelled"
+            ? "Cancelled alert sent. Load marked cancelled."
+            : "Delay alert sent."
+      );
+    } catch (e) {
+      setDocMessage(e instanceof Error ? e.message : "Quick Alert failed.");
+    } finally {
+      setAlertBusyLoadId(null);
+    }
+  };
+
   const emailRatecon = async (
     path: string,
     to: string,
@@ -173,6 +239,8 @@ export function LoadsTable({
         <tbody>
           {loads.map((load, rowIdx) => {
             const carrier = carrierOf(load.carrier_id);
+            const carrierInactive =
+              carrier != null && !carrierAuthorityAssignable(carrier);
             const driver = driverOf(load.driver_id);
             const stripe =
               rowIdx % 2 === 0 ? "bg-[#1A1C1E]" : "bg-[#16181A]/90";
@@ -196,7 +264,16 @@ export function LoadsTable({
                     </span>
                   </td>
                   {showCarrierColumn ? (
-                    <td className="px-4 py-3 text-slate-400">
+                    <td
+                      className={`px-4 py-3 ${
+                        carrierInactive ? "text-slate-600" : "text-slate-400"
+                      }`}
+                      title={
+                        carrierInactive
+                          ? CARRIER_AUTHORITY_INACTIVE_TOOLTIP
+                          : undefined
+                      }
+                    >
                       {carrier?.name ?? "—"}
                     </td>
                   ) : null}
@@ -218,13 +295,29 @@ export function LoadsTable({
                       >
                         {ALL_LOAD_STATUSES.map((s) => (
                           <option key={s} value={s}>
-                            {s.replace(/_/g, " ")}
+                            {LOAD_STATUS_LABELS[s]}
                           </option>
                         ))}
                       </select>
                     ) : (
                       <LoadStatusBadge status={load.status} />
                     )}
+                    {load.driver_notified_at ? (
+                      <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+                        Driver notified{" "}
+                        {new Date(load.driver_notified_at).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </p>
+                    ) : null}
+                    {load.activity_log && load.activity_log.length > 0 ? (
+                      <ul className="mt-1.5 max-h-20 space-y-0.5 overflow-y-auto text-[10px] leading-snug text-slate-500">
+                        {load.activity_log.slice(-5).map((entry, i) => (
+                          <li key={`${entry.at}-${i}`}>{entry.message}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </td>
                   {showDocuments ? (
                     <td className="px-4 py-3">
@@ -244,26 +337,123 @@ export function LoadsTable({
                     </td>
                   ) : null}
                   <td className="px-4 py-3 text-right">
-                    {load.status === "draft" ? (
-                      allowDispatch ? (
-                        <button
-                          type="button"
-                          onClick={() => void onDispatch(load)}
-                          className="rounded-md bg-[#007bff] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.35)] transition-opacity hover:opacity-90"
-                        >
-                          Dispatch
-                        </button>
-                      ) : (
+                    <div className="flex flex-col items-end gap-2">
+                      <Link
+                        href={`/dashboard/loads/${load.id}`}
+                        className="text-xs font-semibold text-[#3395ff] hover:underline"
+                      >
+                        Load details
+                      </Link>
+                      {load.status === "draft" && allowDispatch ? (
+                        carrierInactive ? (
+                          <div className="flex max-w-[14rem] flex-col items-end gap-1.5 text-right">
+                            <button
+                              type="button"
+                              disabled
+                              title={CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING}
+                              className="cursor-not-allowed rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-500 opacity-60"
+                            >
+                              Dispatch
+                            </button>
+                            <p className="text-[11px] font-medium leading-snug text-red-400">
+                              {CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING}
+                            </p>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void onDispatch(load)}
+                            className="rounded-md bg-[#007bff] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.35)] transition-opacity hover:opacity-90"
+                          >
+                            Dispatch
+                          </button>
+                        )
+                      ) : load.status === "draft" && !allowDispatch ? (
                         <span
                           className="text-xs text-slate-600"
                           title="Requires dispatch permission"
                         >
                           No access
                         </span>
-                      )
-                    ) : (
-                      <span className="text-xs text-slate-600">—</span>
-                    )}
+                      ) : null}
+                      {load.driver_id && allowDispatch ? (
+                        <>
+                          <label
+                            className="sr-only"
+                            htmlFor={`quick-alert-${load.id}`}
+                          >
+                            Quick Alert email-to-SMS for this load
+                          </label>
+                          <select
+                            id={`quick-alert-${load.id}`}
+                            className="max-w-[12rem] cursor-pointer rounded-md border border-amber-500/35 bg-[#1a1510] px-2 py-1.5 text-left text-xs text-amber-100 outline-none focus:border-amber-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={
+                              carrierInactive || alertBusyLoadId === load.id
+                            }
+                            title={
+                              carrierInactive
+                                ? CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING
+                                : interactiveDemo
+                                  ? "Open the list and pick an action—preview won’t send a real text"
+                                  : "Preset texts to the assigned driver’s phone"
+                            }
+                            value={alertSelectValue[load.id] ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value as
+                                | QuickFireTemplateType
+                                | "";
+                              setAlertSelectValue((prev) => ({
+                                ...prev,
+                                [load.id]: "",
+                              }));
+                              if (v === "") return;
+                              if (v === "delayed") {
+                                const nt = window.prompt(
+                                  "New pickup window?",
+                                  ""
+                                );
+                                if (nt === null) return;
+                                void sendQuickFireSms(load, "delayed", nt);
+                                return;
+                              }
+                              if (v === "dispatch" || v === "cancelled") {
+                                void sendQuickFireSms(load, v);
+                              }
+                            }}
+                            aria-label="Quick Alert"
+                          >
+                            <option value="">
+                              {alertBusyLoadId === load.id
+                                ? "Sending…"
+                                : "Quick Alert"}
+                            </option>
+                            <option value="dispatch">
+                              Dispatch (New Load)
+                            </option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="delayed">Delayed</option>
+                          </select>
+                          {carrierInactive ? (
+                            <p className="max-w-[12rem] text-right text-[10px] font-medium leading-snug text-red-400/90">
+                              {CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : null}
+                      {allowDispatch &&
+                      !load.driver_id &&
+                      load.status !== "draft" ? (
+                        <span
+                          className="text-xs text-slate-600"
+                          title="Assign a driver to use Quick Alert"
+                        >
+                          —
+                        </span>
+                      ) : null}
+                      {!allowDispatch && load.status !== "draft" ? (
+                        <span className="text-xs text-slate-600">—</span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
                 {showDocuments && expanded && path ? (

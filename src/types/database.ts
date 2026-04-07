@@ -3,6 +3,7 @@ export type ProfileRole = "Admin" | "Dispatcher" | "Driver";
 export type LoadStatus =
   | "draft"
   | "dispatched"
+  | "notification_sent"
   | "in_transit"
   | "delivered"
   | "cancelled";
@@ -21,15 +22,28 @@ export type Organization = {
   is_active_authority?: boolean | null;
 };
 
+export type TrialType = "BETA" | "TRIAL";
+
 export type Profile = {
   id: string;
   org_id: string;
   role: ProfileRole;
   full_name: string | null;
   phone: string | null;
+  /** Dispatcher mobile for SMS templates (`{{dispatcher_phone}}`); preferred when set. */
+  phone_number?: string | null;
+  /** Wireless SMS gateway host (e.g. vtext.com) for email-to-SMS. */
+  phone_carrier?: string | null;
+  trial_type?: TrialType | null;
+  trial_ends_at?: string | null;
+  is_beta_user?: boolean | null;
+  stripe_subscription_id?: string | null;
+  stripe_customer_id?: string | null;
 };
 
 export type ServiceFeeType = "percent" | "flat";
+
+export type CarrierComplianceStatus = "active" | "inactive";
 
 export type Carrier = {
   id: string;
@@ -38,11 +52,21 @@ export type Carrier = {
   mc_number: string | null;
   dot_number?: string | null;
   is_active_authority?: boolean | null;
+  compliance_status?: CarrierComplianceStatus | null;
+  compliance_alert?: string | null;
+  /** Nightly FMCSA job and other automated compliance notes. */
+  compliance_log?: string | null;
+  /** FMCSA common authority status date (YYYY-MM-DD). */
+  authority_date?: string | null;
+  /** Denormalized; UI prefers recalculating from authority_date when set. */
+  is_new_authority?: boolean | null;
   fee_percent: number;
   /** When `flat`, commission per delivered load is `service_fee_flat_cents`. */
   service_fee_type?: ServiceFeeType | null;
   service_fee_flat_cents?: number | null;
   contact_email: string | null;
+  /** Wireless SMS gateway host for optional carrier mobile alerts. */
+  phone_carrier?: string | null;
   /** Magic-link ELD connect completed; dispatcher live map requires this. */
   eld_handshake_completed_at?: string | null;
 };
@@ -55,6 +79,8 @@ export type Driver = {
   carrier_id: string;
   full_name: string;
   phone: string | null;
+  /** Wireless SMS gateway host (e.g. vtext.com) for dispatch via email-to-SMS. */
+  phone_carrier?: string | null;
   contact_email?: string | null;
   status: DriverRosterStatus | string;
   /** Preferred CDL identifier (migration adds column; legacy may use license_number). */
@@ -69,6 +95,8 @@ export type Driver = {
   pay_percent_of_gross?: number | null;
   /** Cents per loaded mile (e.g. 70 = $0.70/mi). */
   pay_cpm_cents?: number | null;
+  /** Set when this roster row is linked to a login for /driver. */
+  auth_user_id?: string | null;
 };
 
 export type UserPermissionsRow = {
@@ -85,6 +113,8 @@ export type PendingTeamInvite = {
   org_id: string;
   email: string;
   full_name: string | null;
+  /** Set when inviting a dispatch-capable user; copied to profile when they join. */
+  phone_number?: string | null;
   can_view_financials: boolean;
   can_dispatch_loads: boolean;
   can_edit_fleet: boolean;
@@ -110,6 +140,11 @@ export type Truck = {
   fleet_status?: TruckFleetStatus | null;
 };
 
+export type LoadActivityLogEntry = {
+  at: string;
+  message: string;
+};
+
 export type Load = {
   id: string;
   org_id: string;
@@ -121,7 +156,11 @@ export type Load = {
   status: LoadStatus;
   ratecon_storage_path: string | null;
   dispatched_at: string | null;
+  /** Set when email-to-SMS (or future channels) successfully notifies the driver. */
+  driver_notified_at?: string | null;
   delivered_at: string | null;
+  /** SMS / quick-fire audit trail (newest entries appended). */
+  activity_log?: LoadActivityLogEntry[] | null;
   pay_deadhead?: boolean | null;
   deadhead_rate_cpm_cents?: number | null;
   deadhead_miles?: number | null;
@@ -140,4 +179,30 @@ export type EldConnection = {
   access_token: string | null;
   refresh_token: string | null;
   token_expires_at: string | null;
+};
+
+/** Landing page waitlist (`public.leads`). */
+export type LeadRole = "Dispatcher" | "Fleet Owner" | "Owner-Operator";
+
+export type Lead = {
+  id: string;
+  full_name: string;
+  company_name: string;
+  email: string;
+  role: LeadRole;
+  source: string;
+  created_at: string;
+};
+
+export type SupportTicketStatus = "Open" | "In Progress" | "Resolved";
+export type SupportTicketPriority = "Low" | "Medium" | "High";
+
+export type SupportTicket = {
+  id: string;
+  subject: string;
+  description: string;
+  status: SupportTicketStatus;
+  priority: SupportTicketPriority;
+  screenshot_url: string | null;
+  created_at: string;
 };

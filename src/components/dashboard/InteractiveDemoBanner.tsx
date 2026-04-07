@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import type { InteractiveDemoVariant } from "@/lib/demo_data";
 
-export function InteractiveDemoBanner() {
-  const { userRole } = useDashboardData();
-  const label = userRole === "dispatcher" ? "Dispatcher" : "Carrier";
+export function InteractiveDemoBanner({
+  variant,
+}: {
+  /** From server `demoSession` — avoids client-only context drift during hydration. */
+  variant: InteractiveDemoVariant;
+}) {
+  const label = variant === "carrier" ? "Carrier" : "Dispatcher";
 
   return (
     <div className="sticky top-10 z-[45] border-b border-[#007bff]/25 bg-[#0a1628]/95 backdrop-blur-md">
@@ -15,8 +19,9 @@ export function InteractiveDemoBanner() {
             Demo mode
           </span>{" "}
           <span className="text-slate-300">
-            You are viewing a preview of the NexusFreight{" "}
-            <span className="text-white">{label}</span> Suite.
+            You&apos;re exploring the full NexusFreight{" "}
+            <span className="text-white">{label}</span> command center—no
+            feature limits in this preview.
           </span>
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
@@ -24,7 +29,7 @@ export function InteractiveDemoBanner() {
             href="/auth/signup"
             className="rounded-md bg-[#007bff] px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_0_16px_rgba(0,123,255,0.3)] transition-opacity hover:opacity-90 sm:text-xs"
           >
-            Sign up to go live
+            Create account
           </Link>
           <Link
             href="/api/demo/exit"

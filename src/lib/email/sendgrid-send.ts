@@ -1,7 +1,9 @@
 import sgMail from "@sendgrid/mail";
 
 export function sendgridConfigured(): boolean {
-  return Boolean(process.env.SENDGRID_API_KEY?.trim() && process.env.SENDGRID_FROM_EMAIL?.trim());
+  return Boolean(
+    process.env.SENDGRID_API_KEY?.trim() && process.env.SENDGRID_FROM_EMAIL?.trim()
+  );
 }
 
 export type AttachmentInput = {

@@ -209,9 +209,8 @@ export function DashboardSettlementsPage() {
         </div>
         {isDispatcher ? (
           <p className="mt-3 text-[11px] text-slate-600">
-            Email uses SendGrid (
-            <code className="text-slate-500">SENDGRID_API_KEY</code>,{" "}
-            <code className="text-slate-500">SENDGRID_FROM_EMAIL</code>).
+            Email delivery uses SendGrid when configured on the server for your
+            deployment.
           </p>
         ) : null}
       </div>

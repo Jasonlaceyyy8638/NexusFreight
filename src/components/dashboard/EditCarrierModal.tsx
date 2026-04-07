@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CarrierSelect } from "@/components/dashboard/CarrierSelect";
 import type { Carrier, ServiceFeeType } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -34,6 +35,7 @@ export function EditCarrierModal({
   const [feePercent, setFeePercent] = useState("10");
   const [flatUsd, setFlatUsd] = useState("250");
   const [contactEmail, setContactEmail] = useState("");
+  const [phoneCarrier, setPhoneCarrier] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +48,7 @@ export function EditCarrierModal({
         : "250.00"
     );
     setContactEmail(carrier.contact_email ?? "");
+    setPhoneCarrier(carrier.phone_carrier ?? "");
     setError(null);
   }, [carrier]);
 
@@ -87,6 +90,7 @@ export function EditCarrierModal({
     try {
       const patch: Record<string, unknown> = {
         contact_email: contactEmail.trim() || null,
+        phone_carrier: phoneCarrier.trim() || null,
         updated_at: new Date().toISOString(),
       };
       if (canViewFinancials) {
@@ -192,6 +196,14 @@ export function EditCarrierModal({
               className={inputClass}
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-200">
+            Wireless carrier (optional)
+            <CarrierSelect
+              className={inputClass}
+              value={phoneCarrier}
+              onChange={setPhoneCarrier}
             />
           </label>
 

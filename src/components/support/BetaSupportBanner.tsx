@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Fixed beta + support notice (root layout).
  * Height is fixed at `h-10` (2.5rem) to match `pt-10` on the main content wrapper

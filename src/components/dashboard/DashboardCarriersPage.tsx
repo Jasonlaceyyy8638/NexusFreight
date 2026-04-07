@@ -7,6 +7,9 @@ import { AddCarrierModal } from "@/components/dashboard/AddCarrierModal";
 import { EditCarrierModal } from "@/components/dashboard/EditCarrierModal";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
+import { NewAuthorityBadge } from "@/components/fmcsa/NewAuthorityBadge";
+import { carrierAuthorityAssignable } from "@/lib/carrier-authority";
+import { carrierIsNewAuthority } from "@/lib/fmcsa_authority";
 
 export function DashboardCarriersPage() {
   const {
@@ -158,7 +161,11 @@ export function DashboardCarriersPage() {
         {carriers.map((c) => (
           <li
             key={c.id}
-            className="rounded-xl border border-white/10 bg-[#16181A]/90 p-4 backdrop-blur-sm"
+            className={`rounded-xl border p-4 backdrop-blur-sm ${
+              c.is_active_authority === false
+                ? "border-red-500/45 bg-red-950/25 ring-1 ring-red-500/20"
+                : "border-white/10 bg-[#16181A]/90"
+            }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <Link
@@ -168,7 +175,13 @@ export function DashboardCarriersPage() {
                 {c.name}
               </Link>
               <div className="flex flex-wrap items-center gap-2">
-                {c.is_active_authority ? <FmcsaVerifiedBadge /> : null}
+                {!carrierAuthorityAssignable(c) ? (
+                  <span className="rounded-md border border-red-500/40 bg-red-950/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-200">
+                    Authority inactive
+                  </span>
+                ) : null}
+                {carrierAuthorityAssignable(c) ? <FmcsaVerifiedBadge /> : null}
+                {carrierIsNewAuthority(c) ? <NewAuthorityBadge /> : null}
                 {supabase && orgId ? (
                   <button
                     type="button"
@@ -197,6 +210,11 @@ export function DashboardCarriersPage() {
               {c.dot_number ? <>DOT {c.dot_number} · </> : null}
               {drivers.filter((d) => d.carrier_id === c.id).length} drivers
             </p>
+            {c.compliance_log || c.compliance_alert ? (
+              <p className="mt-2 text-[11px] text-amber-200/90">
+                {c.compliance_log ?? c.compliance_alert}
+              </p>
+            ) : null}
             <div className="mt-3 border-t border-white/10 pt-3">
               <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Settlement & documents email

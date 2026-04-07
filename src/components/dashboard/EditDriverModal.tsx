@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CarrierSelect } from "@/components/dashboard/CarrierSelect";
 import { DriverRosterStatusPicker } from "@/components/dashboard/DriverRosterStatusPicker";
 import { normalizeDriverRosterStatus } from "@/lib/driver-roster-status";
 import type {
@@ -40,6 +41,7 @@ export function EditDriverModal({
   const fleetTrucks = trucks.filter((t) => t.carrier_id === driver.carrier_id);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneCarrier, setPhoneCarrier] = useState("");
   const [cdl, setCdl] = useState("");
   const [licenseExpiration, setLicenseExpiration] = useState("");
   const [truckId, setTruckId] = useState<string>("");
@@ -105,6 +107,7 @@ export function EditDriverModal({
       const row: Record<string, unknown> = {
         full_name: fullName.trim(),
         phone: phone.trim() || null,
+        phone_carrier: phoneCarrier.trim() || null,
         cdl_number: cdl.trim() || null,
         license_expiration: licenseExpiration.trim() || null,
         assigned_truck_id: truckId || null,
@@ -158,6 +161,14 @@ export function EditDriverModal({
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
             Phone
             <input className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </label>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Wireless carrier (email-to-SMS)
+            <CarrierSelect
+              className={inputClass}
+              value={phoneCarrier}
+              onChange={setPhoneCarrier}
+            />
           </label>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
             CDL number

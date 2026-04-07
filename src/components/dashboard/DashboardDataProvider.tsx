@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -25,6 +26,10 @@ import {
 } from "@/lib/demo_data";
 import { money } from "@/lib/dashboard/format";
 import { computeDispatcherCommissionCents } from "@/lib/calculations";
+import {
+  CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING,
+  carrierAuthorityAssignable,
+} from "@/lib/carrier-authority";
 import { normalizeDriverRosterStatus } from "@/lib/driver-roster-status";
 import {
   mergePermissionRow,
@@ -41,6 +46,7 @@ import type {
   OrgType,
   ProfileRole,
   Truck,
+  TrialType,
 } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -85,6 +91,10 @@ export type DashboardDataContextValue = {
   /** Cookie-based hands-on sandbox (no login). */
   interactiveDemo: boolean;
   interactiveDemoVariant: InteractiveDemoVariant | null;
+  /** Supabase session user id when signed in; used to hide demo chrome. */
+  authSessionUserId: string | null;
+  /** False until initial `getSession` completes (avoid demo banner flash). */
+  authSessionResolved: boolean;
   carriers: Carrier[];
   drivers: Driver[];
   loads: Load[];
@@ -100,10 +110,15 @@ export type DashboardDataContextValue = {
   permissions: DashboardPermissionFlags;
   profileRole: ProfileRole | null;
   currentProfileId: string | null;
+  trialType: TrialType | null;
+  trialEndsAt: string | null;
+  isBetaUser: boolean;
+  hasStripeSubscription: boolean;
   /** Interactive carrier demo only: append a driver to local state. */
   addDemoDriver: (input: {
     full_name: string;
     phone: string;
+    phone_carrier?: string | null;
     cdl_number: string;
     license_expiration: string | null;
     assigned_truck_id: string | null;
@@ -133,6 +148,7 @@ export function DashboardDataProvider({
   children: ReactNode;
   demoSession?: InteractiveDemoVariant | null;
 }) {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const seedBundle =
     demoSession === "dispatcher" || demoSession === "carrier"
@@ -148,9 +164,11 @@ export function DashboardDataProvider({
   const [usingDemo, setUsingDemo] = useState(
     () => !supabase || Boolean(seedBundle)
   );
-  const [interactiveDemo, setInteractiveDemo] = useState(
-    () => Boolean(demoSession)
+  const [interactiveDemo, setInteractiveDemo] = useState(false);
+  const [authSessionUserId, setAuthSessionUserId] = useState<string | null>(
+    null
   );
+  const [authSessionResolved, setAuthSessionResolved] = useState(false);
   const [interactiveDemoVariant, setInteractiveDemoVariant] = useState<
     InteractiveDemoVariant | null
   >(demoSession ?? null);
@@ -179,9 +197,52 @@ export function DashboardDataProvider({
   );
   const [profileRole, setProfileRole] = useState<ProfileRole | null>(null);
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
+  const [trialType, setTrialType] = useState<TrialType | null>(null);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [isBetaUser, setIsBetaUser] = useState(false);
+  const [hasStripeSubscription, setHasStripeSubscription] = useState(false);
   const [demoGateOpen, setDemoGateOpen] = useState(false);
 
   const openDemoAccountGate = useCallback(() => setDemoGateOpen(true), []);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthSessionResolved(true);
+      return;
+    }
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
+      const uid = session?.user?.id ?? null;
+      setAuthSessionUserId(uid);
+      setAuthSessionResolved(true);
+      if (uid && demoSession) {
+        void fetch("/api/demo/clear-cookie", {
+          method: "POST",
+          credentials: "include",
+        }).then(() => router.refresh());
+      }
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const uid = session?.user?.id ?? null;
+      setAuthSessionUserId(uid);
+      if (event === "SIGNED_IN" && uid) {
+        void fetch("/api/demo/clear-cookie", {
+          method: "POST",
+          credentials: "include",
+        }).then(() => router.refresh());
+      }
+      if (event === "SIGNED_OUT") {
+        setAuthSessionUserId(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [supabase, router, demoSession]);
 
   const refresh = useCallback(async () => {
     const S = {
@@ -200,6 +261,10 @@ export function DashboardDataProvider({
       setPermissions(PERMISSIONS_FULL_ACCESS);
       setProfileRole(null);
       setCurrentProfileId(null);
+      setTrialType(null);
+      setTrialEndsAt(null);
+      setIsBetaUser(false);
+      setHasStripeSubscription(false);
       if (demoSession === "dispatcher" || demoSession === "carrier") {
         const b = getInteractiveDemoBundle(demoSession);
         setInteractiveDemo(true);
@@ -225,6 +290,10 @@ export function DashboardDataProvider({
         setPermissions(PERMISSIONS_FULL_ACCESS);
         setProfileRole(null);
         setCurrentProfileId(null);
+        setTrialType(null);
+        setTrialEndsAt(null);
+        setIsBetaUser(false);
+        setHasStripeSubscription(false);
         applyBundle(S, b);
         return;
       }
@@ -234,13 +303,19 @@ export function DashboardDataProvider({
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("org_id, role, id")
+      .select(
+        "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id"
+      )
       .single();
     if (!profile?.org_id) {
       setUsingDemo(true);
       setPermissions(PERMISSIONS_FULL_ACCESS);
       setProfileRole(null);
       setCurrentProfileId(null);
+      setTrialType(null);
+      setTrialEndsAt(null);
+      setIsBetaUser(false);
+      setHasStripeSubscription(false);
       applyBundle(S, getInteractiveDemoBundle("dispatcher"));
       setOrgId(DEMO_ORG_ID);
       return;
@@ -249,6 +324,12 @@ export function DashboardDataProvider({
     setOrgId(profile.org_id);
     setCurrentProfileId(profile.id);
     setProfileRole(profile.role as ProfileRole);
+    setTrialType((profile.trial_type as TrialType) ?? null);
+    setTrialEndsAt(profile.trial_ends_at ?? null);
+    setIsBetaUser(Boolean(profile.is_beta_user));
+    setHasStripeSubscription(
+      Boolean(profile.stripe_subscription_id?.trim())
+    );
     const { data: permRow } = await supabase
       .from("user_permissions")
       .select("*")
@@ -308,6 +389,7 @@ export function DashboardDataProvider({
     (input: {
       full_name: string;
       phone: string;
+      phone_carrier?: string | null;
       cdl_number: string;
       license_expiration: string | null;
       assigned_truck_id: string | null;
@@ -328,6 +410,7 @@ export function DashboardDataProvider({
         carrier_id: carrierId,
         full_name: input.full_name,
         phone: input.phone || null,
+        phone_carrier: input.phone_carrier?.trim() || null,
         status: input.status,
         cdl_number: input.cdl_number || null,
         license_expiration: input.license_expiration,
@@ -379,6 +462,11 @@ export function DashboardDataProvider({
         openDemoAccountGate();
         return;
       }
+      const carrierRow = carriers.find((c) => c.id === load.carrier_id);
+      if (carrierRow && !carrierAuthorityAssignable(carrierRow)) {
+        alert(CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING);
+        return;
+      }
       const driver = load.driver_id
         ? drivers.find((d) => d.id === load.driver_id)
         : null;
@@ -394,6 +482,7 @@ export function DashboardDataProvider({
         alert("Driver must be Active on the roster to dispatch.");
         return;
       }
+
       const res = await fetch("/api/dispatch/sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -403,6 +492,7 @@ export function DashboardDataProvider({
           origin: load.origin,
           destination: load.destination,
           rateCents: load.rate_cents,
+          phoneCarrierDomain: driver.phone_carrier?.trim() || null,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -410,6 +500,7 @@ export function DashboardDataProvider({
         alert(body.error ?? "Dispatch SMS failed");
         return;
       }
+      const channel = (body as { channel?: string }).channel;
       if (supabase) {
         const truck =
           driver?.assigned_truck_id != null
@@ -438,18 +529,31 @@ export function DashboardDataProvider({
             deadheadMiles = (dhJson as { deadheadMiles: number }).deadheadMiles;
           }
         }
-        await supabase
-          .from("loads")
-          .update({
-            status: "dispatched",
-            dispatched_at: new Date().toISOString(),
-            ...(deadheadMiles != null ? { deadhead_miles: deadheadMiles } : {}),
-          })
-          .eq("id", load.id);
+        const nowIso = new Date().toISOString();
+        const patch: Record<string, unknown> = {
+          updated_at: nowIso,
+          ...(deadheadMiles != null ? { deadhead_miles: deadheadMiles } : {}),
+        };
+        if (channel === "email_sms") {
+          patch.status = "notification_sent";
+          patch.driver_notified_at = nowIso;
+        } else {
+          patch.status = "dispatched";
+          patch.dispatched_at = nowIso;
+        }
+        await supabase.from("loads").update(patch).eq("id", load.id);
       }
       await refresh();
     },
-    [drivers, trucks, supabase, refresh, interactiveDemo, openDemoAccountGate]
+    [
+      carriers,
+      drivers,
+      trucks,
+      supabase,
+      refresh,
+      interactiveDemo,
+      openDemoAccountGate,
+    ]
   );
 
   const updateLoadStatus = useCallback(
@@ -540,6 +644,8 @@ export function DashboardDataProvider({
       usingDemo,
       interactiveDemo,
       interactiveDemoVariant,
+      authSessionUserId,
+      authSessionResolved,
       carriers,
       drivers,
       loads,
@@ -554,6 +660,10 @@ export function DashboardDataProvider({
       permissions,
       profileRole,
       currentProfileId,
+      trialType,
+      trialEndsAt,
+      isBetaUser,
+      hasStripeSubscription,
       addDemoDriver,
       updateDriverRosterStatus,
       updateLoadStatus,
@@ -567,6 +677,8 @@ export function DashboardDataProvider({
       usingDemo,
       interactiveDemo,
       interactiveDemoVariant,
+      authSessionUserId,
+      authSessionResolved,
       carriers,
       drivers,
       loads,
@@ -579,6 +691,10 @@ export function DashboardDataProvider({
       permissions,
       profileRole,
       currentProfileId,
+      trialType,
+      trialEndsAt,
+      isBetaUser,
+      hasStripeSubscription,
       addDemoDriver,
       updateDriverRosterStatus,
       updateLoadStatus,

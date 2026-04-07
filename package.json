@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "postinstall": "node scripts/copy-mapbox-worker.js",
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate-pwa-icons": "node scripts/generate-pwa-icons.cjs"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
@@ -17,18 +18,23 @@
     "lucide-react": "^1.7.0",
     "mapbox-gl": "^3.21.0",
     "next": "16.2.2",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-map-gl": "^8.1.0",
+    "resend": "^6.10.0",
+    "stripe": "^22.0.0",
     "twilio": "^5.13.1"
   },
   "devDependencies": {
+    "@netlify/functions": "^5.1.5",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

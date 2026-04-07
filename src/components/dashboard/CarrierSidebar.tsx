@@ -4,6 +4,7 @@ import {
   Banknote,
   ClipboardList,
   FileText,
+  Headset,
   LayoutDashboard,
   LogOut,
   Map,
@@ -12,6 +13,7 @@ import {
   ShieldCheck,
   Truck,
   UserCog,
+  UserCircle2,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -19,6 +21,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { SidebarPwaInstallButton } from "@/components/pwa/SidebarPwaInstallButton";
+import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
 
 type NavItem = {
   href: string;
@@ -29,6 +33,7 @@ type NavItem = {
 
 const nav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/drivers", label: "Drivers", icon: UserCircle2 },
   { href: "/dashboard/map", label: "Live Map", icon: Map },
   { href: "/dashboard/loads", label: "Loads", icon: ClipboardList },
   { href: "/dashboard/fleet", label: "Drivers & Trucks", icon: Truck },
@@ -40,6 +45,11 @@ const nav: NavItem[] = [
   },
   { href: "/dashboard/team", label: "Internal Team", icon: Users },
   { href: "/dashboard/team-management", label: "Team management", icon: UserCog },
+  {
+    href: "/dashboard/support-resources",
+    label: "Support & Resources",
+    icon: Headset,
+  },
   {
     href: "/dashboard/documents",
     label: "Compliance & Documents",
@@ -108,12 +118,10 @@ export function CarrierSidebar() {
   }, [supabase, router]);
 
   return (
-    <aside className="fixed left-0 top-10 z-[80] flex h-[calc(100vh-2.5rem)] w-64 flex-col border-r border-white/10 bg-[#1A1C1E] text-white">
+    <aside className="fixed left-0 top-10 z-[80] flex h-[calc(100dvh-2.5rem)] w-64 flex-col border-r border-white/10 bg-[#1A1C1E] text-white">
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
-        <Link href="/dashboard" className="block">
-          <span className="text-lg font-bold tracking-tight text-[#007bff]">
-            NexusFreight
-          </span>
+        <Link href="/dashboard" className="block rounded-xl outline-none ring-offset-2 ring-offset-[#1A1C1E] focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50">
+          <NexusFreightLogo className="h-8 w-auto" />
           <span className="mt-0.5 block text-[10px] font-semibold tracking-[0.22em] text-emerald-400/90">
             FLEET COMMAND
           </span>
@@ -145,6 +153,7 @@ export function CarrierSidebar() {
       </nav>
 
       <div className="shrink-0 border-t border-white/10 p-3">
+        <SidebarPwaInstallButton />
         <div className="rounded-lg border border-white/10 bg-[#16181A]/90 px-3 py-2.5">
           <p className="truncate text-xs font-semibold text-slate-200">
             {displayName}

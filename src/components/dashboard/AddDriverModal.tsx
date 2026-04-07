@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CarrierSelect } from "@/components/dashboard/CarrierSelect";
 import { DriverRosterStatusPicker } from "@/components/dashboard/DriverRosterStatusPicker";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import {
+  CARRIER_AUTHORITY_INACTIVE_TOOLTIP,
+  carrierAuthorityAssignable,
+} from "@/lib/carrier-authority";
 import type {
   DriverPayStructure,
   DriverRosterStatus,
@@ -33,10 +38,14 @@ export function AddDriverModal({ open, onClose }: Props) {
   const canFin = permissions.can_view_financials;
 
   const carrierId = selectedCarrierId ?? carriers[0]?.id ?? "";
+  const fleetCarrier = carriers.find((c) => c.id === carrierId);
+  const fleetAuthorityOk =
+    fleetCarrier != null ? carrierAuthorityAssignable(fleetCarrier) : true;
   const fleetTrucks = trucks.filter((t) => t.carrier_id === carrierId);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneCarrier, setPhoneCarrier] = useState("");
   const [cdl, setCdl] = useState("");
   const [licenseExpiration, setLicenseExpiration] = useState("");
   const [truckId, setTruckId] = useState<string>("");
@@ -54,6 +63,7 @@ export function AddDriverModal({ open, onClose }: Props) {
   const reset = useCallback(() => {
     setFullName("");
     setPhone("");
+    setPhoneCarrier("");
     setCdl("");
     setLicenseExpiration("");
     setTruckId("");
@@ -82,6 +92,7 @@ export function AddDriverModal({ open, onClose }: Props) {
       addDemoDriver({
         full_name: fullName.trim(),
         phone: phone.trim(),
+        phone_carrier: phoneCarrier.trim() || null,
         cdl_number: cdl.trim(),
         license_expiration: licenseExpiration.trim() || null,
         assigned_truck_id: truckId || null,
@@ -105,6 +116,12 @@ export function AddDriverModal({ open, onClose }: Props) {
       setError("Connect Supabase and ensure your fleet is loaded.");
       return;
     }
+    if (!fleetAuthorityOk) {
+      setError(
+        "Cannot add drivers: this fleet’s FMCSA authority is inactive. Resolve compliance first."
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -115,6 +132,7 @@ export function AddDriverModal({ open, onClose }: Props) {
         carrier_id: carrierId,
         full_name: fullName.trim(),
         phone: phone.trim() || null,
+        phone_carrier: phoneCarrier.trim() || null,
         cdl_number: cdl.trim() || null,
         license_expiration: licenseExpiration.trim() || null,
         assigned_truck_id: truckId || null,
@@ -182,6 +200,17 @@ export function AddDriverModal({ open, onClose }: Props) {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+15551234567"
             />
+          </label>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Wireless carrier (for dispatch SMS via email gateway)
+            <CarrierSelect
+              className={inputClass}
+              value={phoneCarrier}
+              onChange={setPhoneCarrier}
+            />
+            <span className="mt-1 block text-[11px] font-normal normal-case tracking-normal text-slate-600">
+              When set, &ldquo;Send load&rdquo; uses SendGrid email-to-SMS (≤160 chars) instead of Twilio.
+            </span>
           </label>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
             CDL number
@@ -322,6 +351,15 @@ export function AddDriverModal({ open, onClose }: Props) {
               />
             </label>
           </div>
+          {!fleetAuthorityOk && isCarrierOrg ? (
+            <p
+              className="rounded-md border border-red-500/35 bg-red-950/30 px-3 py-2 text-xs text-red-200"
+              title={CARRIER_AUTHORITY_INACTIVE_TOOLTIP}
+            >
+              {CARRIER_AUTHORITY_INACTIVE_TOOLTIP} New drivers cannot be added
+              until FMCSA authority is active again.
+            </p>
+          ) : null}
           {!interactiveDemo && !supabase ? (
             <p className="text-xs text-amber-200/80">
               Add{" "}
@@ -353,7 +391,10 @@ export function AddDriverModal({ open, onClose }: Props) {
             </button>
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || !fleetAuthorityOk}
+              title={
+                !fleetAuthorityOk ? CARRIER_AUTHORITY_INACTIVE_TOOLTIP : undefined
+              }
               className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.3)] hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save driver"}

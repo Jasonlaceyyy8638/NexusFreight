@@ -31,14 +31,21 @@ function DemoQuerySync() {
 export function DashboardLayoutClient({
   children,
   demoSession = null,
+  serverInteractiveDemoBanner = false,
 }: {
   children: ReactNode;
   demoSession?: InteractiveDemoVariant | null;
+  serverInteractiveDemoBanner?: boolean;
 }) {
   return (
     <DashboardDataProvider demoSession={demoSession}>
       <DemoQuerySync />
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardShell
+        demoSession={demoSession}
+        serverInteractiveDemoBanner={serverInteractiveDemoBanner}
+      >
+        {children}
+      </DashboardShell>
     </DashboardDataProvider>
   );
 }

@@ -1,12 +1,18 @@
 import Link from "next/link";
+import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
 import { FeatureCardsGrid } from "@/components/landing/FeatureCardsGrid";
 import { HeroPlatformCTA } from "@/components/landing/HeroPlatformCTA";
 import { HeroProductPreview } from "@/components/landing/HeroProductPreview";
 import { ImpactStatsBar } from "@/components/landing/ImpactStatsBar";
 import { IntegrationPartnersSection } from "@/components/landing/IntegrationPartnersSection";
 import { LandingFaqAccordion } from "@/components/landing/LandingFaqAccordion";
+import { LandingLeadCapture } from "@/components/landing/LandingLeadCapture";
+import { BetaLaunchBanner } from "@/components/landing/BetaLaunchBanner";
+import { DownloadDesktopCta } from "@/components/pwa/DownloadDesktopCta";
 import { MarketingNav } from "@/components/landing/MarketingNav";
 import { MarketingPageBackdrop } from "@/components/landing/MarketingPageBackdrop";
+import { NativeDriverAppSection } from "@/components/landing/NativeDriverAppSection";
+import { NexusFreightShieldSection } from "@/components/landing/NexusFreightShieldSection";
 import { SecurityDataTrustSection } from "@/components/landing/SecurityDataTrustSection";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { WhoWeServeSection } from "@/components/landing/WhoWeServeSection";
@@ -17,6 +23,7 @@ export default function Home() {
       <MarketingPageBackdrop />
 
       <div className="relative z-10 flex min-h-screen flex-col">
+        <BetaLaunchBanner />
         <MarketingNav />
 
         <main className="flex flex-1 flex-col">
@@ -44,9 +51,9 @@ export default function Home() {
               />
               <div className="relative z-10 flex w-full flex-col items-center px-6 pb-20 pt-20 sm:pt-24">
                 <div className="mx-auto max-w-4xl text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400">
-                    NexusFreight
-                  </p>
+                  <div className="flex justify-center">
+                    <NexusFreightLogo priority className="h-10 w-auto sm:h-11" />
+                  </div>
                   <h1
                     id="hero-heading"
                     className="mt-5 text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.45)] sm:text-5xl md:text-6xl lg:text-[3.25rem]"
@@ -76,6 +83,8 @@ export default function Home() {
           </section>
 
           <ImpactStatsBar />
+
+          <DownloadDesktopCta />
 
           <IntegrationPartnersSection />
 
@@ -114,6 +123,10 @@ export default function Home() {
 
           <SecurityDataTrustSection />
 
+          <NexusFreightShieldSection />
+
+          <NativeDriverAppSection />
+
           <LandingFaqAccordion />
 
           <section className="border-t border-white/[0.06] px-6 py-20 font-sans sm:py-24">
@@ -136,6 +149,8 @@ export default function Home() {
               </p>
             </div>
           </section>
+
+          <LandingLeadCapture />
         </main>
 
         <SiteFooter />

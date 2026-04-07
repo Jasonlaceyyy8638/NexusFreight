@@ -7,6 +7,7 @@ import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
 import { MarketingNav } from "@/components/landing/MarketingNav";
 import { createClient } from "@/lib/supabase/client";
 import { useFmcsaMcLookup } from "@/lib/hooks/useFmcsaMcLookup";
+import { isDispatcherPhoneProvided } from "@/lib/phone/dispatcher-phone";
 
 type RoleChoice = "dispatcher" | "carrier" | null;
 
@@ -22,6 +23,7 @@ export function SignupClient() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [agencyName, setAgencyName] = useState("");
+  const [dispatcherPhone, setDispatcherPhone] = useState("");
   const [mcInput, setMcInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -59,7 +61,10 @@ export function SignupClient() {
     password.length >= 6;
 
   const canSubmitDispatcher =
-    role === "dispatcher" && email.trim() && password.length >= 6;
+    role === "dispatcher" &&
+    email.trim() &&
+    password.length >= 6 &&
+    isDispatcherPhoneProvided(dispatcherPhone);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +109,7 @@ export function SignupClient() {
               role_type: "dispatcher",
               full_name: fullName.trim() || undefined,
               agency_name: agencyName.trim() || undefined,
+              phone_number: dispatcherPhone.trim(),
             },
           },
         });
@@ -237,9 +243,10 @@ export function SignupClient() {
                   ) : null}
                   {fmcsa.status === "missing_key" ? (
                     <p className="rounded-md border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
-                      FMCSA lookup is not configured (
-                      <code className="text-amber-200/90">FMCSA_WEB_KEY</code>
-                      ).
+                      FMCSA lookup is not configured — set{" "}
+                      <code className="text-amber-200/90">FMCSA_WEB_KEY</code> or{" "}
+                      <code className="text-amber-200/90">FMCSA_WEBKEY</code> on
+                      the server.
                     </p>
                   ) : null}
                   {fmcsa.status === "error" ? (
@@ -369,6 +376,25 @@ export function SignupClient() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+              </label>
+              <label className="block text-sm font-medium text-slate-200">
+                Phone number
+                <input
+                  type="tel"
+                  required
+                  autoComplete="tel"
+                  className={inputClass}
+                  value={dispatcherPhone}
+                  onChange={(e) => setDispatcherPhone(e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                />
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  Required. Used as{" "}
+                  <code className="rounded border border-white/10 px-1">
+                    {"{{dispatcher_phone}}"}
+                  </code>{" "}
+                  in automated load SMS to drivers.
+                </span>
               </label>
               <label className="block text-sm font-medium text-slate-200">
                 Full name (optional)

@@ -4,6 +4,7 @@ import {
   computeDriverTotalPayCents,
   computeLoadedDriverPayCents,
 } from "@/lib/calculations";
+import { computeIsNewAuthority } from "@/lib/fmcsa_authority";
 import type {
   Carrier,
   Driver,
@@ -24,6 +25,17 @@ const now = () => new Date().toISOString();
 const daysAgo = (n: number) =>
   new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
 
+/** Calendar date YYYY-MM-DD, n days before today (local). */
+function isoDateDaysAgo(n: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export type InteractiveDemoVariant = "dispatcher" | "carrier";
 
 export type InteractiveDemoBundle = {
@@ -37,6 +49,9 @@ export type InteractiveDemoBundle = {
   defaultSelectedCarrierId: string | null;
 };
 
+const authC1 = isoDateDaysAgo(400);
+const authC2 = isoDateDaysAgo(45);
+
 const dispatcherCarriers: Carrier[] = [
   {
     id: C1,
@@ -45,6 +60,11 @@ const dispatcherCarriers: Carrier[] = [
     mc_number: "884521",
     dot_number: "1234567",
     is_active_authority: true,
+    compliance_status: "active",
+    compliance_alert: null,
+    compliance_log: null,
+    authority_date: authC1,
+    is_new_authority: computeIsNewAuthority(authC1),
     fee_percent: 12,
     service_fee_type: "percent",
     service_fee_flat_cents: null,
@@ -58,6 +78,11 @@ const dispatcherCarriers: Carrier[] = [
     mc_number: "771203",
     dot_number: "2345678",
     is_active_authority: true,
+    compliance_status: "active",
+    compliance_alert: null,
+    compliance_log: null,
+    authority_date: authC2,
+    is_new_authority: computeIsNewAuthority(authC2),
     fee_percent: 10,
     service_fee_type: "flat",
     service_fee_flat_cents: 25000,
@@ -65,6 +90,8 @@ const dispatcherCarriers: Carrier[] = [
     eld_handshake_completed_at: daysAgo(7),
   },
 ];
+
+const authFleet = isoDateDaysAgo(200);
 
 const carrierOnly: Carrier[] = [
   {
@@ -74,6 +101,11 @@ const carrierOnly: Carrier[] = [
     mc_number: "612884",
     dot_number: "3489012",
     is_active_authority: true,
+    compliance_status: "active",
+    compliance_alert: null,
+    compliance_log: null,
+    authority_date: authFleet,
+    is_new_authority: computeIsNewAuthority(authFleet),
     fee_percent: 0,
     service_fee_type: "percent",
     service_fee_flat_cents: null,
@@ -155,6 +187,7 @@ function dispatcherDrivers(): Driver[] {
       carrier_id: C1,
       full_name: "Jordan Ellis",
       phone: "+15551234001",
+      phone_carrier: "vtext.com",
       contact_email: "j.ellis@example.com",
       status: "active",
       emergency_contact_name: "Pat Ellis",
@@ -411,7 +444,7 @@ function dispatcherLoads(drivers: Driver[]): Load[] {
     { origin: "Chicago, IL", destination: "Columbus, OH", rate: 4200, carrier: C1, status: "in_transit", driverIdx: 0 },
     { origin: "Dallas, TX", destination: "Atlanta, GA", rate: 5100, carrier: C1, status: "draft" },
     { origin: "Denver, CO", destination: "Kansas City, MO", rate: 3800, carrier: C2, status: "delivered", driverIdx: 3 },
-    { origin: "Phoenix, AZ", destination: "El Paso, TX", rate: 2900, carrier: C2, status: "dispatched", driverIdx: 4 },
+    { origin: "Phoenix, AZ", destination: "El Paso, TX", rate: 2900, carrier: C2, status: "notification_sent", driverIdx: 4 },
     { origin: "Memphis, TN", destination: "Nashville, TN", rate: 1850, carrier: C1, status: "draft" },
     { origin: "Los Angeles, CA", destination: "Las Vegas, NV", rate: 2200, carrier: C2, status: "in_transit", driverIdx: 5 },
     { origin: "Indianapolis, IN", destination: "Detroit, MI", rate: 1650, carrier: C1, status: "delivered", driverIdx: 1 },
@@ -428,6 +461,8 @@ function dispatcherLoads(drivers: Driver[]): Load[] {
   return lanes.map((L, i) => {
     const driver =
       L.driverIdx !== undefined ? drivers[L.driverIdx] : undefined;
+    const notified =
+      L.status === "notification_sent" ? daysAgo(0) : null;
     const disp =
       L.status === "dispatched" || L.status === "in_transit" || L.status === "delivered"
         ? daysAgo(3 - (i % 4))
@@ -444,7 +479,8 @@ function dispatcherLoads(drivers: Driver[]): Load[] {
       rate_cents: L.rate * 100,
       status: L.status,
       ratecon_storage_path: i % 4 === 0 ? `demo/${L.carrier}/rc-${i}.pdf` : null,
-      dispatched_at: disp,
+      dispatched_at: L.status === "notification_sent" ? null : disp,
+      driver_notified_at: notified,
       delivered_at: del,
     };
     return attachPayrollDemo(base, carrier, driver, i, true);
@@ -500,6 +536,7 @@ function carrierLoads(drivers: Driver[]): Load[] {
       status: L.s,
       ratecon_storage_path: i % 3 === 0 ? `demo/fleet/rc-${i}.pdf` : null,
       dispatched_at: disp,
+      driver_notified_at: null,
       delivered_at: del,
     };
     return attachPayrollDemo(base, carrier, driver, i, false);

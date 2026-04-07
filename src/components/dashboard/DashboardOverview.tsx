@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import { DashboardDesktopOptimizedFooter } from "@/components/dashboard/DashboardDesktopOptimizedFooter";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { getDispatcherCommissionCentsForLoad } from "@/lib/calculations";
 
@@ -61,13 +62,13 @@ export function DashboardOverview() {
   /** Carrier-facing: fuel / overhead placeholder from active and recent dispatched miles proxy. */
   const fuelExpenseEstimate = useMemo(() => {
     const active = loads.filter((l) =>
-      ["dispatched", "in_transit"].includes(l.status)
+      ["dispatched", "notification_sent", "in_transit"].includes(l.status)
     ).length;
     return Math.round(rollingLinehaul7d * 0.14 + active * 18500);
   }, [loads, rollingLinehaul7d]);
 
   const activeLoads = loads.filter((l) =>
-    ["dispatched", "in_transit"].includes(l.status)
+    ["dispatched", "notification_sent", "in_transit"].includes(l.status)
   ).length;
 
   const trucksActive = trucks.filter(
@@ -205,6 +206,7 @@ export function DashboardOverview() {
             can prioritize which trucks return to the lane first.
           </p>
         </section>
+        <DashboardDesktopOptimizedFooter />
       </div>
     );
   }
@@ -272,25 +274,22 @@ export function DashboardOverview() {
           ELD readiness
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
-          OAuth helpers for Samsara, Motive, and Geotab live in{" "}
-          <code className="rounded-md border border-white/10 bg-[#121416] px-1.5 py-0.5 text-xs text-slate-300">
-            src/lib/integrations/eld_service.ts
-          </code>
-          . Store tokens per carrier in{" "}
-          <code className="rounded-md border border-white/10 bg-[#121416] px-1.5 py-0.5 text-xs text-slate-300">
-            eld_connections
-          </code>{" "}
-          and extend{" "}
-          <code className="rounded-md border border-white/10 bg-[#121416] px-1.5 py-0.5 text-xs text-slate-300">
-            fetchTruckPositionsForCarrier
-          </code>{" "}
-          with live provider APIs. Manage trucks and drivers under{" "}
+          Connect supported ELD providers (e.g. Motive) from{" "}
+          <Link
+            href="/dashboard/settings/integrations"
+            className="text-[#3395ff] hover:underline"
+          >
+            ELD &amp; telematics
+          </Link>{" "}
+          so truck positions sync to the live map. Manage trucks and drivers
+          under{" "}
           <Link href="/dashboard/fleet" className="text-[#3395ff] hover:underline">
             Fleet
           </Link>
           .
         </p>
       </section>
+      <DashboardDesktopOptimizedFooter />
     </div>
   );
 }

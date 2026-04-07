@@ -9,6 +9,7 @@ import {
   mergePermissionRow,
   PERMISSIONS_FULL_ACCESS,
 } from "@/lib/permissions";
+import { isDispatcherPhoneProvided } from "@/lib/phone/dispatcher-phone";
 import type {
   PendingTeamInvite,
   ProfileRole,
@@ -20,7 +21,15 @@ type ProfileRow = {
   full_name: string | null;
   role: string;
   phone: string | null;
+  phone_number: string | null;
 };
+
+function memberNeedsDispatcherPhone(
+  role: string,
+  eff: DashboardPermissionFlags
+): boolean {
+  return role === "Dispatcher" || eff.can_dispatch_loads;
+}
 
 const emptyInviteFlags: DashboardPermissionFlags = {
   can_view_financials: false,
@@ -49,7 +58,9 @@ export function DashboardTeamManagementPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
   const [inviteFlags, setInviteFlags] = useState(emptyInviteFlags);
+  const [memberPhones, setMemberPhones] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -67,7 +78,7 @@ export function DashboardTeamManagementPage() {
     const [pRes, upRes, invRes] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, role, phone")
+        .select("id, full_name, role, phone, phone_number")
         .eq("org_id", orgId)
         .order("full_name"),
       supabase.from("user_permissions").select("*").eq("org_id", orgId),
@@ -77,7 +88,16 @@ export function DashboardTeamManagementPage() {
         .eq("org_id", orgId)
         .order("created_at", { ascending: false }),
     ]);
-    setProfiles((pRes.data as ProfileRow[]) ?? []);
+    const list = (pRes.data as ProfileRow[]) ?? [];
+    setProfiles(list);
+    setMemberPhones(
+      Object.fromEntries(
+        list.map((row) => [
+          row.id,
+          row.phone_number?.trim() || row.phone?.trim() || "",
+        ])
+      )
+    );
     const map: Record<string, DashboardPermissionFlags> = {};
     for (const row of (upRes.data as UserPermissionsRow[]) ?? []) {
       map[row.profile_id] = {
@@ -152,6 +172,15 @@ export function DashboardTeamManagementPage() {
       setMsg("Email is required.");
       return;
     }
+    if (
+      inviteFlags.can_dispatch_loads &&
+      !isDispatcherPhoneProvided(invitePhone)
+    ) {
+      setMsg(
+        "Phone number is required for dispatchers (used as {{dispatcher_phone}} in load SMS)."
+      );
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -159,6 +188,9 @@ export function DashboardTeamManagementPage() {
         org_id: orgId,
         email,
         full_name: inviteName.trim() || null,
+        phone_number: inviteFlags.can_dispatch_loads
+          ? invitePhone.trim()
+          : null,
         can_view_financials: inviteFlags.can_view_financials,
         can_dispatch_loads: inviteFlags.can_dispatch_loads,
         can_edit_fleet: inviteFlags.can_edit_fleet,
@@ -168,11 +200,49 @@ export function DashboardTeamManagementPage() {
       setInviteOpen(false);
       setInviteEmail("");
       setInviteName("");
+      setInvitePhone("");
       setInviteFlags(emptyInviteFlags);
       await load();
       setMsg("Invite saved. When they join your org, apply these flags in Supabase or re-open this page after signup hooks run.");
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Could not save invite");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveMemberDispatcherPhone = async (p: ProfileRow) => {
+    if (interactiveDemo) {
+      openDemoAccountGate();
+      return;
+    }
+    if (!supabase || !canAdmin) return;
+    const eff = effectiveFor(p);
+    if (!memberNeedsDispatcherPhone(p.role, eff)) return;
+    const raw = memberPhones[p.id]?.trim() ?? "";
+    if (!isDispatcherPhoneProvided(raw)) {
+      setMsg(
+        "Enter a valid phone number (at least 10 digits) for this dispatcher."
+      );
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          phone_number: raw,
+          phone: raw,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", p.id);
+      if (error) throw error;
+      await load();
+      await refresh();
+      setMsg("Dispatcher phone saved.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not save phone");
     } finally {
       setBusy(false);
     }
@@ -199,18 +269,17 @@ export function DashboardTeamManagementPage() {
             Roles &amp; permissions
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            In the live app, toggles are stored in{" "}
-            <code className="rounded border border-white/10 px-1 text-xs text-slate-400">
-              user_permissions
-            </code>{" "}
-            and enforced in the UI. Demo mode runs with full access.
+            This is the same roles &amp; permissions experience your team gets in
+            production. The sample toggles below illustrate how access is
+            granted for financials, dispatch, fleet, and admin actions.
           </p>
         </header>
-        <div className="rounded-xl border border-amber-500/25 bg-amber-950/15 p-5 text-sm text-amber-100/90">
-          <p className="font-medium text-amber-50">Preview only</p>
-          <p className="mt-2 text-amber-100/80">
-            Sign up and connect Supabase to invite teammates and edit permission
-            switches. Sample toggles below match the production form.
+        <div className="rounded-xl border border-[#007bff]/25 bg-[#0a1628]/60 p-5 text-sm text-slate-200">
+          <p className="font-medium text-[#7eb8ff]">Interactive demo</p>
+          <p className="mt-2 text-slate-400">
+            Explore the full UI with full access. When you create an account,
+            your organization&apos;s real permissions and invites are stored
+            securely—nothing here is saved to a database in preview mode.
           </p>
         </div>
         <div className="space-y-3 rounded-xl border border-white/10 bg-[#16181A]/90 p-5">
@@ -253,7 +322,7 @@ export function DashboardTeamManagementPage() {
   if (!supabase || !orgId) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center text-sm text-slate-500">
-        Connect Supabase and sign in to manage team permissions.
+        Sign in to manage team permissions for your organization.
       </div>
     );
   }
@@ -282,7 +351,7 @@ export function DashboardTeamManagementPage() {
             onClick={() => setInviteOpen(true)}
             className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
           >
-            Add team member
+            Add dispatcher
           </button>
         ) : null}
       </header>
@@ -304,6 +373,9 @@ export function DashboardTeamManagementPage() {
             {profiles.map((p) => {
               const eff = effectiveFor(p);
               const editable = canAdmin;
+              const needsPhone = memberNeedsDispatcherPhone(p.role, eff);
+              const displayPhone =
+                p.phone_number?.trim() || p.phone?.trim() || "";
               return (
                 <li
                   key={p.id}
@@ -316,10 +388,49 @@ export function DashboardTeamManagementPage() {
                       </p>
                       <p className="text-xs text-slate-500">
                         Role: {p.role}
-                        {p.phone ? ` · ${p.phone}` : ""}
+                        {displayPhone ? ` · ${displayPhone}` : ""}
                       </p>
                     </div>
                   </div>
+                  {needsPhone ? (
+                    <div className="mb-4 rounded-lg border border-white/[0.08] bg-[#16181A]/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Dispatcher phone
+                        <span className="ml-1 text-amber-200/90">*</span>
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-600">
+                        Used as{" "}
+                        <code className="rounded border border-white/10 px-1">
+                          {"{{dispatcher_phone}}"}
+                        </code>{" "}
+                        when this user sends load SMS.
+                      </p>
+                      <input
+                        type="tel"
+                        className="mt-2 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-white"
+                        value={memberPhones[p.id] ?? ""}
+                        onChange={(e) =>
+                          setMemberPhones((m) => ({
+                            ...m,
+                            [p.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="+1 (555) 123-4567"
+                        disabled={!editable || busy}
+                        autoComplete="tel"
+                      />
+                      {editable ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void saveMemberDispatcherPhone(p)}
+                          className="mt-2 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/15 disabled:opacity-50"
+                        >
+                          Save phone
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="grid gap-2 sm:grid-cols-2">
                     <PermEditor
                       profileId={p.id}
@@ -413,13 +524,15 @@ export function DashboardTeamManagementPage() {
       {inviteOpen ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#16181A] p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-white">
-              Add team member
-            </h3>
+            <h3 className="text-lg font-semibold text-white">Add dispatcher</h3>
             <p className="mt-1 text-xs text-slate-500">
               Stores permission defaults in{" "}
               <code className="text-slate-500">pending_team_invites</code> until
-              they accept an invite and receive a profile.
+              they join. If{" "}
+              <span className="text-slate-400">Can dispatch loads</span> is on, a
+              phone number is required (
+              <code className="text-slate-500">{"{{dispatcher_phone}}"}</code> in
+              load SMS).
             </p>
             <form
               onSubmit={(e) => void submitInvite(e)}
@@ -441,6 +554,25 @@ export function DashboardTeamManagementPage() {
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
                   className="mt-1 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-white"
+                />
+              </label>
+              <label className="block text-xs font-semibold uppercase text-slate-500">
+                Phone number
+                {inviteFlags.can_dispatch_loads ? (
+                  <span className="ml-1 text-amber-200/90">*</span>
+                ) : null}
+                <input
+                  type="tel"
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  required={inviteFlags.can_dispatch_loads}
+                  className="mt-1 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-white"
+                  placeholder={
+                    inviteFlags.can_dispatch_loads
+                      ? "Required for dispatch SMS"
+                      : "Optional unless dispatch is enabled"
+                  }
+                  autoComplete="tel"
                 />
               </label>
               <div className="space-y-2">
@@ -480,7 +612,10 @@ export function DashboardTeamManagementPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setInviteOpen(false)}
+                  onClick={() => {
+                    setInviteOpen(false);
+                    setInvitePhone("");
+                  }}
                   className="rounded-md border border-white/15 px-3 py-2 text-sm text-slate-300"
                 >
                   Cancel

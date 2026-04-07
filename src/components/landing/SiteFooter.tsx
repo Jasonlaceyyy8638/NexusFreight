@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
 
 const product = [
   { label: "Command Center", href: "/product/command-center" },
@@ -61,6 +62,11 @@ export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-white/[0.06] bg-[#1A1C1E] px-6 py-20 sm:py-24">
       <div className="mx-auto max-w-6xl">
+        <div className="mb-14">
+          <Link href="/" className="inline-flex rounded-xl outline-none ring-offset-2 ring-offset-[#1A1C1E] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50">
+            <NexusFreightLogo className="h-9 w-auto sm:h-10" />
+          </Link>
+        </div>
         <div className="grid gap-14 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">

@@ -36,7 +36,12 @@ export function defaultMotiveScopes(): string {
   );
 }
 
+/** Prefer MOTIVE_REDIRECT_URI; else `{NEXT_PUBLIC_APP_URL}/api/eld-invite/motive/callback`. */
 export function motiveOAuthRedirectUri(): string | null {
+  const explicit =
+    process.env.MOTIVE_REDIRECT_URI?.trim() ||
+    process.env.MOTIVE_OAUTH_REDIRECT_URI?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
   const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
   if (!base) return null;
   return `${base}/api/eld-invite/motive/callback`;

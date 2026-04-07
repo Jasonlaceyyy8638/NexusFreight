@@ -1,0 +1,18 @@
+/**
+ * Nexus Control admin identity: only this **signed-in** Supabase Auth email may access
+ * `/admin/control-center` and `/api/admin/*`. Everyone else gets 404 / unauthorized.
+ *
+ * Default: `info@nexusfreight.tech`. Optional server env `ADMIN_CONTROL_EMAIL` overrides
+ * (e.g. staging). Comparison is always case-insensitive.
+ */
+function resolveAdminControlEmail(): string {
+  const fromEnv = process.env.ADMIN_CONTROL_EMAIL?.trim().toLowerCase();
+  if (fromEnv) return fromEnv;
+  return "info@nexusfreight.tech";
+}
+
+export const ADMIN_CONTROL_EMAIL: string = resolveAdminControlEmail();
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  return (email ?? "").trim().toLowerCase() === ADMIN_CONTROL_EMAIL;
+}

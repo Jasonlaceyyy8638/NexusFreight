@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchCarrierData } from "@/app/actions/fmcsa";
 import type { FmcsaCompanyData } from "@/lib/fmcsa_service";
 
 export type FmcsaLookupState =
@@ -26,41 +27,26 @@ export function useFmcsaMcLookup(mcInput: string) {
     queueMicrotask(() => setState({ status: "loading" }));
     const t = window.setTimeout(async () => {
       try {
-        const res = await fetch("/api/fmcsa/lookup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ number: mcInput }),
-        });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          data?: FmcsaCompanyData;
-          error?: string;
-          code?: string;
-        };
-
-        if (res.status === 503 && json.code === "missing_key") {
-          setState({ status: "missing_key" });
-          return;
-        }
-        if (res.status === 400) {
+        const result = await fetchCarrierData(mcInput);
+        if (!result.ok) {
+          if (result.code === "missing_key") {
+            setState({ status: "missing_key" });
+            return;
+          }
           setState({
             status: "error",
-            message: json.error ?? "Invalid request",
-            code: json.code,
+            message: result.error,
+            code: result.code,
           });
           return;
         }
-        if (!json.ok || !json.data) {
-          setState({
-            status: "error",
-            message: json.error ?? "Lookup failed",
-            code: json.code,
-          });
-          return;
-        }
-        setState({ status: "success", data: json.data });
+        setState({ status: "success", data: result.data });
       } catch {
-        setState({ status: "error", message: "Network error" });
+        setState({
+          status: "error",
+          message:
+            "MC Number not found. Please verify and try again.",
+        });
       }
     }, DEBOUNCE_MS);
 

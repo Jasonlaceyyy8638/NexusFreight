@@ -1,0 +1,3 @@
+# Scheduled FMCSA compliance check → POST /api/cron/fmcsa-compliance (Bearer CRON_SECRET)
+[functions]
+  directory = "netlify/functions"

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
+import { NavDesktopAppInstallButton } from "@/components/pwa/NavDesktopAppInstallButton";
 
 const PRODUCT_TOUR_HREF = "/product-tour" as const;
 
@@ -73,9 +75,9 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-6 py-3.5 font-[family-name:var(--font-inter)] sm:py-4">
           <Link
             href="/"
-            className="shrink-0 text-base font-bold tracking-tight text-[#007bff] transition-colors hover:text-[#3395ff] sm:text-lg"
+            className="shrink-0 rounded-xl outline-none ring-offset-2 ring-offset-[#0D0E10] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50"
           >
-            NexusFreight
+            <NexusFreightLogo priority className="h-8 w-auto sm:h-9" />
           </Link>
 
           <nav
@@ -104,6 +106,7 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
             >
               Product Tour
             </Link>
+            <NavDesktopAppInstallButton />
             <Link
               href="mailto:info@nexusfreight.tech?subject=Demo%20Request"
               className="rounded-md border border-white/25 bg-white/5 px-3 py-1.5 font-semibold text-white backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/10"
@@ -155,10 +158,10 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
               <Link
                 href="/"
-                className="text-lg font-bold tracking-tight text-[#007bff]"
+                className="inline-flex rounded-xl outline-none ring-offset-2 ring-offset-[#1A1C1E] focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50"
                 onClick={() => setMobileOpen(false)}
               >
-                NexusFreight
+                <NexusFreightLogo className="h-9 w-auto" />
               </Link>
               <button
                 type="button"

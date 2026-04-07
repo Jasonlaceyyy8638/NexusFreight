@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { fetchCarrierData } from "@/app/actions/fmcsa";
+import { CarrierSelect } from "@/components/dashboard/CarrierSelect";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import { AuthorityActiveSinceBlock } from "@/components/fmcsa/AuthorityActiveSinceBlock";
 import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
-import { useFmcsaMcLookup } from "@/lib/hooks/useFmcsaMcLookup";
+import type { FmcsaCompanyData } from "@/lib/fmcsa_service";
 import type { ServiceFeeType } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -19,6 +22,24 @@ type Props = {
 const inputClass =
   "mt-1.5 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
 
+const MIN_DIGITS = 4;
+
+type FmcsaUiState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "success"; data: FmcsaCompanyData }
+  | { kind: "error"; message: string }
+  | { kind: "missing_key" };
+
+function carrierDisplayName(data: FmcsaCompanyData): string {
+  const legal = data.legal_name.trim();
+  const dba = data.dba_name.trim();
+  if (dba && dba !== legal) {
+    return `${legal} (DBA ${dba})`;
+  }
+  return legal || dba;
+}
+
 export function AddCarrierModal({
   open,
   onClose,
@@ -30,37 +51,86 @@ export function AddCarrierModal({
   const { permissions } = useDashboardData();
   const canFin = permissions.can_view_financials;
   const [mcInput, setMcInput] = useState("");
+  const [fmcsa, setFmcsa] = useState<FmcsaUiState>({ kind: "idle" });
   const [feeType, setFeeType] = useState<ServiceFeeType>("percent");
   const [feePercent, setFeePercent] = useState("10");
   const [flatUsd, setFlatUsd] = useState("250");
   const [contactEmail, setContactEmail] = useState("");
+  const [phoneCarrier, setPhoneCarrier] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fmcsa = useFmcsaMcLookup(open ? mcInput : "");
+  const [postSave, setPostSave] = useState<{
+    name: string;
+    authority_date: string | null;
+    is_new_authority: boolean;
+  } | null>(null);
 
   const reset = useCallback(() => {
     setMcInput("");
+    setFmcsa({ kind: "idle" });
     setFeeType("percent");
     setFeePercent("10");
     setFlatUsd("250");
     setContactEmail("");
+    setPhoneCarrier("");
     setError(null);
+    setPostSave(null);
   }, []);
 
-  const companyName = fmcsa.status === "success" ? fmcsa.data.legal_name : "";
-  const dotNumber = fmcsa.status === "success" ? fmcsa.data.dot_number : "";
+  const runFmcsaLookup = useCallback(async () => {
+    setError(null);
+    const digits = mcInput.replace(/\D/g, "");
+    if (!mcInput.trim() || digits.length < MIN_DIGITS) {
+      setFmcsa({ kind: "idle" });
+      return;
+    }
+    setFmcsa({ kind: "loading" });
+    try {
+      const result = await fetchCarrierData(mcInput);
+      if (!result.ok) {
+        if (result.code === "missing_key") {
+          setFmcsa({ kind: "missing_key" });
+          return;
+        }
+        setFmcsa({
+          kind: "error",
+          message: result.error,
+        });
+        return;
+      }
+      setFmcsa({ kind: "success", data: result.data });
+    } catch {
+      setFmcsa({
+        kind: "error",
+        message:
+          "MC Number not found. Please verify and try again.",
+      });
+    }
+  }, [mcInput]);
+
+  const companyName =
+    fmcsa.kind === "success" ? carrierDisplayName(fmcsa.data) : "";
+  const dotNumber = fmcsa.kind === "success" ? fmcsa.data.dot_number : "";
   const mcStored =
-    fmcsa.status === "success"
+    fmcsa.kind === "success"
       ? fmcsa.data.mc_number || mcInput.replace(/\D/g, "")
       : "";
-  const authorityActive =
-    fmcsa.status === "success" && fmcsa.data.authority_status === "Active";
+  const cityState = fmcsa.kind === "success" ? fmcsa.data.city_state : "";
+  const operatingOk =
+    fmcsa.kind === "success" &&
+    fmcsa.data.operating_status_display === "ACTIVE" &&
+    fmcsa.data.allowed_to_operate &&
+    fmcsa.data.authority_status === "Active";
+
+  const authorityBlocked =
+    fmcsa.kind === "success" &&
+    (!fmcsa.data.allowed_to_operate ||
+      fmcsa.data.operating_status_display !== "ACTIVE");
 
   const canSave =
     !usingDemo &&
-    fmcsa.status === "success" &&
-    authorityActive &&
+    fmcsa.kind === "success" &&
+    operatingOk &&
     companyName.trim().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,18 +144,22 @@ export function AddCarrierModal({
       return;
     }
 
-    if (fmcsa.status === "missing_key") {
+    if (fmcsa.kind === "missing_key") {
       setError(
-        "FMCSA verification is unavailable. Configure FMCSA_WEB_KEY on the server."
+        "FMCSA verification is unavailable. Configure FMCSA_WEB_KEY or FMCSA_WEBKEY on the server."
       );
       return;
     }
-    if (fmcsa.status !== "success") {
-      setError("Verify the MC number with FMCSA before saving.");
+    if (fmcsa.kind !== "success") {
+      setError(
+        "Look up the MC number with FMCSA (Tab out of the field or click Search)."
+      );
       return;
     }
-    if (!authorityActive) {
-      setError("Only carriers with active FMCSA authority can be added.");
+    if (!operatingOk) {
+      setError(
+        "Operating status must be ACTIVE and allowed to operate before this carrier can be added."
+      );
       return;
     }
 
@@ -112,6 +186,11 @@ export function AddCarrierModal({
         mc_number: mcStored || null,
         dot_number: dotNumber || null,
         is_active_authority: true,
+        compliance_status: "active",
+        compliance_alert: null,
+        compliance_log: null,
+        authority_date: fmcsa.data.authority_date,
+        is_new_authority: fmcsa.data.is_new_authority,
         fee_percent: canFin && feeType === "percent" ? fee : 10,
         service_fee_type: canFin ? feeType : "percent",
         service_fee_flat_cents:
@@ -119,9 +198,12 @@ export function AddCarrierModal({
         contact_email: contactEmail.trim() || null,
       });
       if (insErr) throw insErr;
-      reset();
+      setPostSave({
+        name: companyName.trim(),
+        authority_date: fmcsa.data.authority_date,
+        is_new_authority: fmcsa.data.is_new_authority,
+      });
       onCreated();
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add carrier");
     } finally {
@@ -130,6 +212,11 @@ export function AddCarrierModal({
   };
 
   const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const finishAfterSave = () => {
     reset();
     onClose();
   };
@@ -148,50 +235,106 @@ export function AddCarrierModal({
           id="add-carrier-title"
           className="text-lg font-semibold text-white"
         >
-          Add carrier
+          {postSave ? "Carrier added" : "Add carrier"}
         </h2>
         <p className="mt-1 text-sm text-slate-400">
-          MC is checked against FMCSA. Saving requires an active operating
-          authority.
+          {postSave
+            ? "This carrier is saved to your workspace. Review authority details before assigning loads."
+            : "Enter an MC number, then press Tab or Search to verify with FMCSA. Saving requires ACTIVE operating status."}
         </p>
 
-        <form className="mt-6 space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-          <label className="block text-sm font-medium text-slate-200">
-            MC number
-            <input
-              type="text"
-              className={inputClass}
-              value={mcInput}
-              onChange={(e) => setMcInput(e.target.value)}
-              placeholder="MC-123456 or digits"
+        {postSave ? (
+          <div className="mt-6 space-y-5 rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-4">
+            <p className="text-sm font-medium text-white">{postSave.name}</p>
+            <AuthorityActiveSinceBlock
+              authority_date={postSave.authority_date}
+              is_new_authority={postSave.is_new_authority}
             />
-          </label>
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={finishAfterSave}
+                className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : null}
 
-          {fmcsa.status === "loading" ? (
+        {!postSave ? (
+        <form className="mt-6 space-y-4" onSubmit={(e) => void handleSubmit(e)}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="block min-w-0 flex-1 text-sm font-medium text-slate-200">
+              MC number
+              <input
+                type="text"
+                className={inputClass}
+                value={mcInput}
+                onChange={(e) => {
+                  setMcInput(e.target.value);
+                  if (fmcsa.kind !== "idle" && fmcsa.kind !== "loading") {
+                    setFmcsa({ kind: "idle" });
+                  }
+                }}
+                onBlur={() => void runFmcsaLookup()}
+                placeholder="MC-123456 or digits"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void runFmcsaLookup()}
+              className="shrink-0 rounded-md border border-[#007bff]/50 bg-[#007bff]/15 px-4 py-2 text-sm font-semibold text-[#5aa9ff] hover:bg-[#007bff]/25"
+            >
+              Search FMCSA
+            </button>
+          </div>
+
+          {fmcsa.kind === "loading" ? (
             <p className="text-xs text-slate-500">Checking FMCSA…</p>
           ) : null}
-          {fmcsa.status === "missing_key" ? (
+          {fmcsa.kind === "missing_key" ? (
             <p className="rounded-md border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
               FMCSA verification is unavailable. Set{" "}
-              <code className="text-amber-200/90">FMCSA_WEB_KEY</code> on the
+              <code className="text-amber-200/90">FMCSA_WEB_KEY</code> or{" "}
+              <code className="text-amber-200/90">FMCSA_WEBKEY</code> on the
               server to add carriers.
             </p>
           ) : null}
-          {fmcsa.status === "error" ? (
+          {fmcsa.kind === "error" ? (
             <p className="text-xs text-red-300">{fmcsa.message}</p>
           ) : null}
 
-          {fmcsa.status === "success" ? (
-            <div className="space-y-3 rounded-lg border border-white/10 bg-[#121416]/80 p-4">
+          {fmcsa.kind === "success" ? (
+            <div
+              className={`space-y-3 rounded-lg border p-4 ${
+                authorityBlocked
+                  ? "border-red-500/50 bg-red-950/30"
+                  : "border-white/10 bg-[#121416]/80"
+              }`}
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Company
+                  Legal name / DBA
                 </p>
-                <FmcsaVerifiedBadge />
+                {!authorityBlocked ? <FmcsaVerifiedBadge /> : null}
               </div>
               <p className="text-sm font-medium text-white">{companyName}</p>
+              {cityState ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Business address
+                  </p>
+                  <p className="mt-1 text-sm text-slate-200">{cityState}</p>
+                  {fmcsa.data.address && fmcsa.data.address !== cityState ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {fmcsa.data.address}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <label className="block text-sm font-medium text-slate-200">
-                DOT number
+                USDOT number
                 <input
                   type="text"
                   readOnly
@@ -199,10 +342,31 @@ export function AddCarrierModal({
                   value={dotNumber}
                 />
               </label>
-              {!authorityActive ? (
-                <p className="text-sm font-medium text-red-400">
-                  Authority is inactive — this carrier cannot be saved until FMCSA
-                  shows active status.
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Operating status (FMCSA)
+                </p>
+                <p
+                  className={`mt-1 text-sm font-bold ${
+                    operatingOk ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {fmcsa.data.operating_status_display}
+                  {!fmcsa.data.allowed_to_operate ? (
+                    <span className="ml-2 font-normal text-red-300/90">
+                      — Not allowed to operate
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+              <AuthorityActiveSinceBlock
+                authority_date={fmcsa.data.authority_date}
+                is_new_authority={fmcsa.data.is_new_authority}
+              />
+              {authorityBlocked ? (
+                <p className="text-sm font-medium text-red-300">
+                  This authority cannot be added. Resolve FMCSA status before
+                  assigning loads.
                 </p>
               ) : null}
             </div>
@@ -278,6 +442,18 @@ export function AddCarrierModal({
               placeholder="For settlement PDFs and rate con email"
             />
           </label>
+          <label className="block text-sm font-medium text-slate-200">
+            Wireless carrier (optional)
+            <CarrierSelect
+              className={inputClass}
+              value={phoneCarrier}
+              onChange={setPhoneCarrier}
+              placeholderLabel="— Not set —"
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              Store the carrier’s SMS gateway if you use a mobile number for this MC.
+            </span>
+          </label>
 
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
@@ -298,6 +474,7 @@ export function AddCarrierModal({
             </button>
           </div>
         </form>
+        ) : null}
       </div>
     </div>
   );

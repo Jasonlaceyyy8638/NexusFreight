@@ -8,6 +8,11 @@ import {
   computeDriverTotalPayCents,
   computeLoadedDriverPayCents,
 } from "@/lib/calculations";
+import {
+  CARRIER_AUTHORITY_INACTIVE_TOOLTIP,
+  CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING,
+  carrierAuthorityAssignable,
+} from "@/lib/carrier-authority";
 import { normalizeDriverRosterStatus } from "@/lib/driver-roster-status";
 import type { Carrier, Driver, DriverPayStructure } from "@/types/database";
 
@@ -38,6 +43,14 @@ export function LoadEntryModal({
     permissions,
   } = useDashboardData();
   const canFin = permissions.can_view_financials;
+  const assignableCarriers = useMemo(
+    () => carriers.filter(carrierAuthorityAssignable),
+    [carriers]
+  );
+  const inactiveCarriers = useMemo(
+    () => carriers.filter((c) => !carrierAuthorityAssignable(c)),
+    [carriers]
+  );
   const singleCarrier = carriers.length <= 1;
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -78,6 +91,15 @@ export function LoadEntryModal({
       setDriverId("");
     }
   }, [open, singleCarrier, carriers, carrierId]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!assignableCarriers.some((c) => c.id === carrierId)) {
+      const next = assignableCarriers[0]?.id ?? "";
+      setCarrierId(next);
+      setDriverId("");
+    }
+  }, [open, assignableCarriers, carrierId]);
 
   const reset = useCallback(() => {
     setOrigin("");
@@ -181,6 +203,13 @@ export function LoadEntryModal({
       return;
     }
 
+    const carrierRow = carriers.find((c) => c.id === carrierId);
+    if (carrierRow && !carrierAuthorityAssignable(carrierRow)) {
+      setError(CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING);
+      setBusy(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
       if (!supabase) {
@@ -220,6 +249,7 @@ export function LoadEntryModal({
       });
       const driverTotal = computeDriverTotalPayCents(loadedPay, dhPay);
 
+      const nowIso = new Date().toISOString();
       const row: Record<string, unknown> = {
         org_id: orgId,
         carrier_id: carrierId,
@@ -227,9 +257,12 @@ export function LoadEntryModal({
         origin: origin.trim(),
         destination: destination.trim(),
         rate_cents: rateCents,
-        status: "draft",
+        status: driverId ? "dispatched" : "draft",
         ratecon_storage_path: rateconPath,
       };
+      if (driverId) {
+        row.dispatched_at = nowIso;
+      }
 
       if (canFin) {
         row.pay_deadhead = payDeadhead;
@@ -241,8 +274,24 @@ export function LoadEntryModal({
         row.driver_total_pay_cents = driverTotal;
       }
 
-      const { error: insErr } = await supabase.from("loads").insert(row);
+      const { data: inserted, error: insErr } = await supabase
+        .from("loads")
+        .insert(row)
+        .select("id")
+        .single();
       if (insErr) throw insErr;
+
+      if (inserted?.id && driverId) {
+        try {
+          await fetch("/api/dispatch/notify-driver", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ loadId: inserted.id }),
+          });
+        } catch {
+          /* notification best-effort */
+        }
+      }
 
       reset();
       onCreated();
@@ -255,6 +304,12 @@ export function LoadEntryModal({
   };
 
   if (!open) return null;
+
+  const selectedCarrier = carriers.find((c) => c.id === carrierId);
+  const carrierAssignable =
+    Boolean(carrierId) &&
+    selectedCarrier != null &&
+    carrierAuthorityAssignable(selectedCarrier);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -312,9 +367,25 @@ export function LoadEntryModal({
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Fleet / authority
               </p>
-              <p className="mt-1.5 rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-200">
+              <p
+                className={`mt-1.5 rounded-md border px-3 py-2 text-sm ${
+                  carriers[0] && !carrierAuthorityAssignable(carriers[0])
+                    ? "border-red-500/40 bg-red-950/25 text-slate-500"
+                    : "border-white/10 bg-[#121416] text-slate-200"
+                }`}
+                title={
+                  carriers[0] && !carrierAuthorityAssignable(carriers[0])
+                    ? CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING
+                    : undefined
+                }
+              >
                 {carriers[0]?.name ?? "—"}
               </p>
+              {carriers[0] && !carrierAuthorityAssignable(carriers[0]) ? (
+                <p className="mt-2 text-xs font-medium text-red-400">
+                  {CARRIER_AUTHORITY_INACTIVE_TOOLTIP}
+                </p>
+              ) : null}
             </div>
           ) : (
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -327,12 +398,41 @@ export function LoadEntryModal({
                   setDriverId("");
                 }}
               >
-                {carriers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                {assignableCarriers.length > 0 ? (
+                  <optgroup label="Active — assignable">
+                    {assignableCarriers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                {inactiveCarriers.length > 0 ? (
+                  <optgroup label="Authority inactive">
+                    {inactiveCarriers.map((c) => (
+                      <option
+                        key={c.id}
+                        value={c.id}
+                        disabled
+                        title={CARRIER_AUTHORITY_INACTIVE_TOOLTIP}
+                      >
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
+              {assignableCarriers.length === 0 ? (
+                <p className="mt-2 text-xs font-medium text-red-400">
+                  No carriers with active authority. Add or re-verify a carrier
+                  first.
+                </p>
+              ) : inactiveCarriers.length > 0 ? (
+                <p className="mt-2 text-xs text-red-400/90">
+                  {CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING} Inactive
+                  carriers cannot be selected.
+                </p>
+              ) : null}
             </label>
           )}
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -341,6 +441,12 @@ export function LoadEntryModal({
               className={inputClass}
               value={driverId}
               onChange={(e) => setDriverId(e.target.value)}
+              disabled={!carrierAssignable}
+              title={
+                !carrierAssignable
+                  ? CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING
+                  : undefined
+              }
             >
               <option value="">Unassigned</option>
               {filteredDrivers.map((d) => (
@@ -350,6 +456,13 @@ export function LoadEntryModal({
               ))}
             </select>
           </label>
+          {driverId ? (
+            <p className="text-[11px] leading-snug text-slate-500">
+              This load is marked dispatched so your driver sees it in the
+              mobile app right away. They receive SMS or email when a channel is
+              on file. Use Loads to adjust status later.
+            </p>
+          ) : null}
 
           {canFin ? (
             <div className="rounded-lg border border-white/[0.08] bg-[#121416]/60 p-4">
@@ -474,7 +587,7 @@ export function LoadEntryModal({
             </button>
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || !carrierAssignable}
               className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.3)] hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save load"}

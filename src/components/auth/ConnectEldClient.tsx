@@ -3,6 +3,7 @@
 import { CheckCircle2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EldProvider } from "@/types/database";
+import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
 
 const BRAND_BG = "#1A1C1E";
 const BRAND_ACCENT = "#3B82F6";
@@ -229,13 +230,8 @@ export function ConnectEldClient(props: {
       <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-6 py-12 sm:py-16">
         <header className="mb-10 flex w-full flex-col items-center text-center sm:mb-12">
           <div className="inline-flex flex-col items-center">
-            <p
-              className="text-2xl font-bold tracking-tight sm:text-3xl"
-              style={{ color: BRAND_ACCENT }}
-            >
-              NexusFreight
-            </p>
-            <p className="mt-1.5 text-[10px] font-semibold tracking-[0.28em] text-slate-500">
+            <NexusFreightLogo priority className="h-10 w-auto sm:h-11" />
+            <p className="mt-2 text-[10px] font-semibold tracking-[0.28em] text-slate-500">
               ELD CONNECT
             </p>
           </div>
