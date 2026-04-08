@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { DashboardLayoutClient } from "@/components/dashboard/DashboardLayoutClient";
 import type { InteractiveDemoVariant } from "@/lib/demo_data";
 import { isCorporateNexusControlSidebarUser } from "@/lib/admin/constants";
+import { profileHasWorkspaceLink } from "@/lib/dashboard/workspace-access";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({
@@ -30,10 +31,10 @@ export default async function DashboardLayout({
     if (serverAuthUserId) {
       const { data: profileRow } = await supabase
         .from("profiles")
-        .select("org_id")
+        .select("org_id, role, organizations ( id, name, type )")
         .eq("id", serverAuthUserId)
         .maybeSingle();
-      serverOnboardingRequired = !profileRow?.org_id?.trim();
+      serverOnboardingRequired = !profileHasWorkspaceLink(profileRow);
     }
   }
 

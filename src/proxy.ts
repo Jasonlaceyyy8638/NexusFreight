@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { profileHasWorkspaceLink } from "@/lib/dashboard/workspace-access";
 import {
   stripeSubscriptionAllowsAccess,
 } from "@/lib/stripe/subscription-access";
@@ -35,6 +36,7 @@ type ProfileGateRow = {
   trial_ends_at: string | null;
   stripe_subscription_id: string | null;
   stripe_subscription_status: string | null;
+  organizations?: { id: string; name?: string; type?: string } | null;
 };
 
 export async function proxy(request: NextRequest) {
@@ -78,7 +80,7 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase
       .from("profiles")
       .select(
-        "role, org_id, trial_ends_at, stripe_subscription_id, stripe_subscription_status"
+        "role, org_id, trial_ends_at, stripe_subscription_id, stripe_subscription_status, organizations ( id, name, type )"
       )
       .eq("id", uid)
       .maybeSingle();
@@ -134,7 +136,7 @@ export async function proxy(request: NextRequest) {
     !demoBrowsing &&
     profile &&
     !isDriver &&
-    profile.org_id == null &&
+    !profileHasWorkspaceLink(profile) &&
     path.startsWith("/dashboard")
   ) {
     if (profile.stripe_subscription_id?.trim()) {

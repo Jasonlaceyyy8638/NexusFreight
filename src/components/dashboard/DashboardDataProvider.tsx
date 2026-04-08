@@ -31,6 +31,12 @@ import {
   CARRIER_AUTHORITY_REVOKED_ASSIGNMENT_WARNING,
   carrierAuthorityAssignable,
 } from "@/lib/carrier-authority";
+import {
+  effectiveOrgIdFromProfile,
+  organizationNameFromProfile,
+  orgTypeFromEmbed,
+  profileHasWorkspaceLink,
+} from "@/lib/dashboard/workspace-access";
 import { normalizeDriverRosterStatus } from "@/lib/driver-roster-status";
 import {
   mergePermissionRow,
@@ -98,6 +104,8 @@ export type DashboardDataContextValue = {
   authSessionResolved: boolean;
   /** Signed in but profile has no org — empty workspace, not seeded demo data. */
   onboardingRequired: boolean;
+  /** Tenant display name when joined from `profiles.organizations`. */
+  organizationName: string | null;
   carriers: Carrier[];
   drivers: Driver[];
   loads: Load[];
@@ -167,6 +175,7 @@ export function DashboardDataProvider({
   const [orgType, setOrgType] = useState<OrgType>(
     () => seedBundle?.orgType ?? "Agency"
   );
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
   const [usingDemo, setUsingDemo] = useState(
     () => !supabase || Boolean(seedBundle)
   );
@@ -323,7 +332,7 @@ export function DashboardDataProvider({
     } = await supabase.auth.getUser();
 
     const profileSelect =
-      "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id" as const;
+      "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id, organizations ( id, name, type )" as const;
     const { data: profileRow, error: profileError } = authUser?.id
       ? await supabase
           .from("profiles")
@@ -368,12 +377,14 @@ export function DashboardDataProvider({
       }
     }
 
-    if (!profile?.org_id?.trim()) {
+    const resolvedOrgId = effectiveOrgIdFromProfile(profile);
+    if (!profileHasWorkspaceLink(profile) || !resolvedOrgId) {
       if (authUser) {
         setOnboardingRequired(true);
         setUsingDemo(false);
         setInteractiveDemo(false);
         setInteractiveDemoVariant(null);
+        setOrganizationName(null);
         setOrgId(null);
         setOrgType("Agency");
         setCarriers([]);
@@ -422,9 +433,14 @@ export function DashboardDataProvider({
       return;
     }
 
+    if (!profile) {
+      return;
+    }
+
     setOnboardingRequired(false);
     setUsingDemo(false);
-    setOrgId(profile.org_id);
+    setOrgId(resolvedOrgId);
+    setOrganizationName(organizationNameFromProfile(profile));
     setCurrentProfileId(profile.id);
     setProfileRole(profile.role as ProfileRole);
     setTrialType((profile.trial_type as TrialType) ?? null);
@@ -444,23 +460,28 @@ export function DashboardDataProvider({
         permRow as Partial<DashboardPermissionFlags> | null
       )
     );
-    const { data: orgRow } = await supabase
-      .from("organizations")
-      .select("type")
-      .eq("id", profile.org_id)
-      .single();
-    const t =
-      orgRow && (orgRow as { type?: string }).type === "Carrier"
-        ? "Carrier"
-        : "Agency";
-    setOrgType(t);
+    const embeddedType = orgTypeFromEmbed(profile.organizations);
+    if (embeddedType) {
+      setOrgType(embeddedType);
+    } else {
+      const { data: orgRow } = await supabase
+        .from("organizations")
+        .select("type")
+        .eq("id", resolvedOrgId)
+        .maybeSingle();
+      const t =
+        orgRow && (orgRow as { type?: string }).type === "Carrier"
+          ? "Carrier"
+          : "Agency";
+      setOrgType(t);
+    }
 
     const [cRes, dRes, lRes, tRes, eRes] = await Promise.all([
-      supabase.from("carriers").select("*").eq("org_id", profile.org_id),
-      supabase.from("drivers").select("*").eq("org_id", profile.org_id),
-      supabase.from("loads").select("*").eq("org_id", profile.org_id),
-      supabase.from("trucks").select("*").eq("org_id", profile.org_id),
-      supabase.from("eld_connections").select("*").eq("org_id", profile.org_id),
+      supabase.from("carriers").select("*").eq("org_id", resolvedOrgId),
+      supabase.from("drivers").select("*").eq("org_id", resolvedOrgId),
+      supabase.from("loads").select("*").eq("org_id", resolvedOrgId),
+      supabase.from("trucks").select("*").eq("org_id", resolvedOrgId),
+      supabase.from("eld_connections").select("*").eq("org_id", resolvedOrgId),
     ]);
     const carrierList = (cRes.data as Carrier[]) ?? [];
     setCarriers(carrierList);
@@ -750,6 +771,7 @@ export function DashboardDataProvider({
       authSessionUserId,
       authSessionResolved,
       onboardingRequired,
+      organizationName,
       carriers,
       drivers,
       loads,
@@ -784,6 +806,7 @@ export function DashboardDataProvider({
       authSessionUserId,
       authSessionResolved,
       onboardingRequired,
+      organizationName,
       carriers,
       drivers,
       loads,
