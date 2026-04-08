@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 function glanceBadge(g: AdminCustomerRow["glance"]) {
   const base =
@@ -51,7 +52,14 @@ const crispInboxUrl = `https://app.crisp.chat/website/${CRISP_WEBSITE_ID}/inbox/
 
 type MainTab = "organizations" | "companies" | "audit" | "billing";
 
+/** Signed-in admin’s tenant workspace: drives which product nav they see on /dashboard. */
+type WorkspaceOrgKind = "loading" | "none" | "agency" | "carrier";
+
 export function NexusControlClient() {
+  const supabase = useMemo(() => createClient(), []);
+  const [workspaceOrgKind, setWorkspaceOrgKind] =
+    useState<WorkspaceOrgKind>("loading");
+
   const [mainTab, setMainTab] = useState<MainTab>("companies");
   const [rows, setRows] = useState<AdminCustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +104,44 @@ export function NexusControlClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!supabase) {
+      setWorkspaceOrgKind("none");
+      return;
+    }
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (cancelled || !user?.id) {
+        if (!cancelled) setWorkspaceOrgKind("none");
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("org_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const oid = (profile as { org_id?: string | null } | null)?.org_id?.trim();
+      if (!oid) {
+        if (!cancelled) setWorkspaceOrgKind("none");
+        return;
+      }
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("type")
+        .eq("id", oid)
+        .maybeSingle();
+      if (cancelled) return;
+      const t = (org as { type?: string } | null)?.type;
+      setWorkspaceOrgKind(t === "Carrier" ? "carrier" : "agency");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -177,38 +223,79 @@ export function NexusControlClient() {
               (logged).
             </p>
           </div>
-          <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+          <div className="flex max-w-md shrink-0 flex-col gap-2 sm:items-end">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Product
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href="/dashboard"
-                onClick={() => {
-                  window.sessionStorage.setItem(
-                    "nexus_corporate_sandbox",
-                    "dispatcher"
-                  );
-                }}
-                className="inline-flex items-center gap-2 rounded-lg border border-sky-500/35 bg-sky-950/40 px-3 py-2 text-sm font-semibold text-sky-100 transition hover:bg-sky-950/70"
-              >
-                <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
-                Dispatcher dashboard
-              </Link>
-              <Link
-                href="/dashboard"
-                onClick={() => {
-                  window.sessionStorage.setItem(
-                    "nexus_corporate_sandbox",
-                    "carrier"
-                  );
-                }}
-                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/35 bg-amber-950/30 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-950/55"
-              >
-                <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
-                Carrier dashboard
-              </Link>
-            </div>
+            {workspaceOrgKind === "loading" ? (
+              <p className="text-xs text-slate-500">Loading workspace…</p>
+            ) : workspaceOrgKind === "agency" ? (
+              <div className="flex flex-col items-end gap-2 text-right">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 rounded-lg border border-sky-500/35 bg-sky-950/40 px-3 py-2 text-sm font-semibold text-sky-100 transition hover:bg-sky-950/70"
+                >
+                  <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
+                  Open dispatch / 3PL dashboard
+                </Link>
+                <p className="text-xs leading-snug text-slate-500">
+                  Your profile is linked to an <strong className="text-slate-400">Agency</strong>{" "}
+                  organization — sidebar is dispatch-focused (carriers you manage, commissions,
+                  etc.).
+                </p>
+              </div>
+            ) : workspaceOrgKind === "carrier" ? (
+              <div className="flex flex-col items-end gap-2 text-right">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-500/35 bg-amber-950/30 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-950/55"
+                >
+                  <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
+                  Open fleet / carrier dashboard
+                </Link>
+                <p className="text-xs leading-snug text-slate-500">
+                  Your profile is linked to a <strong className="text-slate-400">Carrier</strong>{" "}
+                  organization — sidebar is fleet-first (drivers, trucks, payroll, ELD).
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-end gap-2 text-right">
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Link
+                    href="/dashboard"
+                    onClick={() => {
+                      window.sessionStorage.setItem(
+                        "nexus_corporate_sandbox",
+                        "dispatcher"
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-sky-500/35 bg-sky-950/40 px-3 py-2 text-sm font-semibold text-sky-100 transition hover:bg-sky-950/70"
+                  >
+                    <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
+                    Dispatch preview
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => {
+                      window.sessionStorage.setItem(
+                        "nexus_corporate_sandbox",
+                        "carrier"
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-amber-500/35 bg-amber-950/30 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-950/55"
+                  >
+                    <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
+                    Fleet preview
+                  </Link>
+                </div>
+                <p className="text-xs leading-snug text-slate-500">
+                  No tenant org on your profile — these open the{" "}
+                  <strong className="text-slate-400">interactive sandbox</strong> in dispatch vs
+                  fleet layout (not customer data). With a linked org, you get a single dashboard
+                  matching that org type.
+                </p>
+              </div>
+            )}
           </div>
         </header>
 
