@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { FOUNDING_MEMBER_CAP } from "@/lib/beta/founding-cap";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-const BETA_CAP = 5;
+const BETA_CAP = FOUNDING_MEMBER_CAP;
 
 /** Public: founding member spots left (first `BETA_CAP` profiles). */
 export async function GET() {

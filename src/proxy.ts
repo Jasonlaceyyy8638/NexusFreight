@@ -4,6 +4,7 @@ import { profileHasWorkspaceLink } from "@/lib/dashboard/workspace-access";
 import {
   stripeSubscriptionAllowsAccess,
 } from "@/lib/stripe/subscription-access";
+import { canAccessNexusControlAdmin } from "@/lib/admin/constants";
 
 const DEMO_COOKIE = "nexus_demo_mode" as const;
 
@@ -70,6 +71,8 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isCorporateSupportAdmin = canAccessNexusControlAdmin(user?.email);
+
   const path = request.nextUrl.pathname;
   const demoCookie = request.cookies.get(DEMO_COOKIE)?.value;
   const demoBrowsing =
@@ -87,6 +90,7 @@ export async function proxy(request: NextRequest) {
   }
 
   function accessAllowed(profile: ProfileGateRow | null) {
+    if (isCorporateSupportAdmin) return true;
     if (!profile) return false;
     const subId = profile.stripe_subscription_id?.trim();
     if (subId) {
@@ -133,6 +137,7 @@ export async function proxy(request: NextRequest) {
 
   if (
     !demoBrowsing &&
+    !isCorporateSupportAdmin &&
     profile &&
     !isDriver &&
     !profileHasWorkspaceLink(profile) &&
@@ -170,6 +175,7 @@ export async function proxy(request: NextRequest) {
   if (
     user &&
     !demoBrowsing &&
+    !isCorporateSupportAdmin &&
     profile != null &&
     !accessAllowed(profile) &&
     (path.startsWith("/dashboard") || path.startsWith("/driver"))
@@ -187,6 +193,7 @@ export async function proxy(request: NextRequest) {
   if (
     user &&
     !demoBrowsing &&
+    !isCorporateSupportAdmin &&
     stripeConfigured &&
     profile != null &&
     profile.role !== "Driver" &&

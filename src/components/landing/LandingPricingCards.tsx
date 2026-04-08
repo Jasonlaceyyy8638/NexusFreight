@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FOUNDING_MEMBER_CAP } from "@/lib/beta/founding-cap";
 
 type BetaPayload = {
   foundingSpotsRemaining?: number;
@@ -8,7 +9,7 @@ type BetaPayload = {
   betaCap?: number;
 };
 
-const BETA_CAP = 5;
+const BETA_CAP = FOUNDING_MEMBER_CAP;
 
 /** Public marketing numbers — keep in sync with Stripe prices when you change them. */
 const MONTHLY_USD = 125;

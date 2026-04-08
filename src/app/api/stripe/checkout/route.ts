@@ -11,11 +11,12 @@ import {
   publicStripeSiteBase,
   stripeFirstSignupSuccessUrl,
 } from "@/lib/stripe/stripe-first-checkout";
+import { FOUNDING_MEMBER_CAP } from "@/lib/beta/founding-cap";
 import { stripeSubscriptionAllowsNewCheckout } from "@/lib/stripe/subscription-access";
 
 export const runtime = "nodejs";
 
-const BETA_CAP = 5;
+const BETA_CAP = FOUNDING_MEMBER_CAP;
 
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_SECRET_KEY?.trim();

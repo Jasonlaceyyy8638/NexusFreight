@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import { DashboardLayoutClient } from "@/components/dashboard/DashboardLayoutClient";
 import type { InteractiveDemoVariant } from "@/lib/demo_data";
-import { isCorporateNexusControlSidebarUser } from "@/lib/admin/constants";
+import {
+  canAccessNexusControlAdmin,
+  isCorporateNexusControlSidebarUser,
+} from "@/lib/admin/constants";
 import { profileHasWorkspaceLink } from "@/lib/dashboard/workspace-access";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -34,7 +37,12 @@ export default async function DashboardLayout({
         .select("org_id, role")
         .eq("id", serverAuthUserId)
         .maybeSingle();
-      serverOnboardingRequired = !profileHasWorkspaceLink(profileRow);
+      const corporateFullAccess = canAccessNexusControlAdmin(
+        session?.user?.email
+      );
+      serverOnboardingRequired = corporateFullAccess
+        ? false
+        : !profileHasWorkspaceLink(profileRow);
     }
   }
 

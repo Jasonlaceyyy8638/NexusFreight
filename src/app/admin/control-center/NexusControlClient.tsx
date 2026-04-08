@@ -8,9 +8,11 @@ import { CRISP_WEBSITE_ID } from "@/components/support/CrispChatScript";
 import {
   ChevronDown,
   ExternalLink,
+  LayoutDashboard,
   Loader2,
   Search,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 function glanceBadge(g: AdminCustomerRow["glance"]) {
@@ -162,16 +164,52 @@ export function NexusControlClient() {
   return (
     <div className="min-h-screen px-4 py-8 text-slate-100 sm:px-8">
       <div className="mx-auto max-w-[1600px]">
-        <header className="border-b border-slate-800 pb-6">
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
-            Internal
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
-            Nexus Control
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Organization oversight, vetting signals, and billing actions (logged).
-          </p>
+        <header className="flex flex-col gap-4 border-b border-slate-800 pb-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
+              Internal
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+              Nexus Control
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-500">
+              Organization oversight, vetting signals, and billing actions
+              (logged).
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Product
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/dashboard"
+                onClick={() => {
+                  window.sessionStorage.setItem(
+                    "nexus_corporate_sandbox",
+                    "dispatcher"
+                  );
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-500/35 bg-sky-950/40 px-3 py-2 text-sm font-semibold text-sky-100 transition hover:bg-sky-950/70"
+              >
+                <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
+                Dispatcher dashboard
+              </Link>
+              <Link
+                href="/dashboard"
+                onClick={() => {
+                  window.sessionStorage.setItem(
+                    "nexus_corporate_sandbox",
+                    "carrier"
+                  );
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/35 bg-amber-950/30 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-950/55"
+              >
+                <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden />
+                Carrier dashboard
+              </Link>
+            </div>
+          </div>
         </header>
 
         <div className="mt-8 flex flex-wrap gap-2">

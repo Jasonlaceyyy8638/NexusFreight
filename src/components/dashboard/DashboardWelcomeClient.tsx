@@ -11,6 +11,7 @@ import {
   Truck,
 } from "lucide-react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import { FOUNDING_MEMBER_CAP } from "@/lib/beta/founding-cap";
 
 function trialDayOfSeven(trialEndsAtIso: string | null): number {
   if (!trialEndsAtIso) return 1;
@@ -156,7 +157,7 @@ export function DashboardWelcomeClient() {
         Welcome to the Inner Circle, Founding Member!
       </h1>
       <p className="mx-auto mt-4 max-w-xl text-center text-base leading-relaxed text-slate-400 md:text-lg">
-        You&apos;ve secured 1 of only 5 Beta spots. Your 45-day premium access
+        You&apos;ve secured 1 of only {FOUNDING_MEMBER_CAP} Beta spots. Your 45-day premium access
         is now active.
       </p>
 

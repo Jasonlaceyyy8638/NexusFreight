@@ -9,6 +9,7 @@ import { DashboardDemoBanner } from "@/components/dashboard/DashboardDemoBanner"
 import { DashboardNotificationBell } from "@/components/dashboard/DashboardNotificationBell";
 import { DispatcherSidebar } from "@/components/dashboard/DispatcherSidebar";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import { CorporateSandboxSwitcher } from "@/components/dashboard/CorporateSandboxSwitcher";
 import { FoundingMemberBetaNotice } from "@/components/dashboard/FoundingMemberBetaNotice";
 import { InteractiveDemoBanner } from "@/components/dashboard/InteractiveDemoBanner";
 import type { InteractiveDemoVariant } from "@/lib/demo_data";
@@ -32,6 +33,7 @@ export function DashboardShell({
     authSessionUserId,
     authSessionResolved,
     onboardingRequired,
+    corporateSandboxPreview,
     supabase,
   } = useDashboardData();
 
@@ -69,9 +71,13 @@ export function DashboardShell({
     showNexusControlNav || clientNexusControlNav;
 
   const showInteractiveStrip =
-    !authSessionUserId &&
-    (serverInteractiveDemoBanner ||
-      (authSessionResolved && interactiveDemo));
+    (!authSessionUserId &&
+      (serverInteractiveDemoBanner ||
+        (authSessionResolved && interactiveDemo))) ||
+    (Boolean(authSessionUserId) &&
+      authSessionResolved &&
+      corporateSandboxPreview &&
+      interactiveDemo);
 
   const interactiveBannerVariant: InteractiveDemoVariant =
     demoSession ?? interactiveDemoVariant ?? "dispatcher";
@@ -128,6 +134,7 @@ export function DashboardShell({
           <DashboardNotificationBell />
         </header>
         <FoundingMemberBetaNotice />
+        <CorporateSandboxSwitcher />
         {onboardingRequired ? (
           effectiveNexusControlNav ? (
             <div className="sticky top-10 z-[45] border-b border-violet-500/25 bg-violet-950/35 px-4 py-2.5 text-center text-[11px] font-medium leading-snug text-violet-100/95 backdrop-blur-md sm:px-6 sm:text-xs">

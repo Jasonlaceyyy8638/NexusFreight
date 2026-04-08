@@ -1,21 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarketingNav } from "@/components/landing/MarketingNav";
+import { canAccessNexusControlAdmin } from "@/lib/admin/constants";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * Shown after signup or when proxy requires Stripe Checkout before dashboard.
  * Trial window matches `profiles.trial_ends_at` (45d founding / 7d standard).
  */
 export function CompleteSubscriptionClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const canceled = searchParams.get("canceled") === "1";
   const plan = searchParams.get("plan") === "yearly" ? "yearly" : "monthly";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const autoOnce = useRef(false);
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return;
+      if (user?.email && canAccessNexusControlAdmin(user.email)) {
+        router.replace("/dashboard");
+        router.refresh();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router, supabase]);
 
   useEffect(() => {
     autoOnce.current = false;
@@ -49,10 +68,13 @@ export function CompleteSubscriptionClient() {
   }, [plan]);
 
   useEffect(() => {
-    if (canceled || autoOnce.current) return;
-    autoOnce.current = true;
-    void startCheckout();
-  }, [canceled, startCheckout]);
+    if (!supabase || canceled || autoOnce.current) return;
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email && canAccessNexusControlAdmin(user.email)) return;
+      autoOnce.current = true;
+      void startCheckout();
+    });
+  }, [canceled, startCheckout, supabase]);
 
   return (
     <div className="min-h-screen bg-[#0D0E10] text-white">

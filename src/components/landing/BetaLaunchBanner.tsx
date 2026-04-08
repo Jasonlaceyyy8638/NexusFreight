@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FOUNDING_MEMBER_CAP } from "@/lib/beta/founding-cap";
 
 type BetaPayload = {
   profileCount: number;
@@ -23,15 +24,15 @@ export function BetaLaunchBanner() {
           foundingSpotsRemaining:
             typeof j.foundingSpotsRemaining === "number"
               ? j.foundingSpotsRemaining
-              : 5,
-          betaCap: typeof j.betaCap === "number" ? j.betaCap : 5,
+              : FOUNDING_MEMBER_CAP,
+          betaCap: typeof j.betaCap === "number" ? j.betaCap : FOUNDING_MEMBER_CAP,
         });
       } catch {
         if (!cancelled) {
           setData({
             profileCount: 0,
-            foundingSpotsRemaining: 5,
-            betaCap: 5,
+            foundingSpotsRemaining: FOUNDING_MEMBER_CAP,
+            betaCap: FOUNDING_MEMBER_CAP,
           });
         }
       }
@@ -45,7 +46,7 @@ export function BetaLaunchBanner() {
   }, []);
 
   const remaining =
-    data?.foundingSpotsRemaining ?? data?.betaCap ?? 5;
+    data?.foundingSpotsRemaining ?? data?.betaCap ?? FOUNDING_MEMBER_CAP;
   const showFounding = remaining > 0;
 
   return (
@@ -61,7 +62,7 @@ export function BetaLaunchBanner() {
             <span className="font-bold tabular-nums text-white">
               {remaining}
             </span>{" "}
-            of {data?.betaCap ?? 5} Founding Member spots remaining! Get 45
+            of {data?.betaCap ?? FOUNDING_MEMBER_CAP} Founding Member spots remaining! Get 45
             days FREE (No credit card required).
           </>
         ) : (

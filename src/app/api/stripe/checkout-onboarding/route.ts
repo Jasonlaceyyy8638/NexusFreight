@@ -5,6 +5,7 @@ import {
   type BillingPlan,
   resolveStripePriceId,
 } from "@/lib/stripe/pricing-env";
+import { FOUNDING_MEMBER_CAP } from "@/lib/beta/founding-cap";
 import {
   buildStripeFirstCheckoutSessionParams,
   publicStripeSiteBase,
@@ -13,11 +14,11 @@ import {
 
 export const runtime = "nodejs";
 
-const BETA_CAP = 5;
+const BETA_CAP = FOUNDING_MEMBER_CAP;
 
 /**
  * Public: start subscription Checkout before signup (Stripe-first onboarding).
- * Metadata carries role + plan; trial length follows founding spots (<5 profiles → 45d).
+ * Metadata carries role + plan; trial length follows founding spots (< N profiles → 45d).
  */
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_SECRET_KEY?.trim();

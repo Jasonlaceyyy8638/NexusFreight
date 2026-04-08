@@ -37,6 +37,7 @@ import {
   profileHasWorkspaceLink,
 } from "@/lib/dashboard/workspace-access";
 import { normalizeDriverRosterStatus } from "@/lib/driver-roster-status";
+import { canAccessNexusControlAdmin } from "@/lib/admin/constants";
 import {
   mergePermissionRow,
   PERMISSIONS_FULL_ACCESS,
@@ -103,6 +104,8 @@ export type DashboardDataContextValue = {
   authSessionResolved: boolean;
   /** Signed in but profile has no org — empty workspace, not seeded demo data. */
   onboardingRequired: boolean;
+  /** Corporate admin (info@) using interactive dispatcher/carrier sandbox while signed in. */
+  corporateSandboxPreview: boolean;
   /** Tenant display name when joined from `profiles.organizations`. */
   organizationName: string | null;
   carriers: Carrier[];
@@ -216,6 +219,7 @@ export function DashboardDataProvider({
   const [isBetaUser, setIsBetaUser] = useState(false);
   const [hasStripeSubscription, setHasStripeSubscription] = useState(false);
   const [demoGateOpen, setDemoGateOpen] = useState(false);
+  const [corporateSandboxPreview, setCorporateSandboxPreview] = useState(false);
   const [onboardingRequired, setOnboardingRequired] = useState(() => {
     if (demoSession === "dispatcher" || demoSession === "carrier") {
       return false;
@@ -268,6 +272,7 @@ export function DashboardDataProvider({
   }, [supabase, router, demoSession]);
 
   const refresh = useCallback(async () => {
+    setCorporateSandboxPreview(false);
     const S = {
       setOrgId,
       setOrgType,
@@ -379,6 +384,29 @@ export function DashboardDataProvider({
     const resolvedOrgId = effectiveOrgIdFromProfile(profile);
     if (!profileHasWorkspaceLink(profile) || !resolvedOrgId) {
       if (authUser) {
+        if (canAccessNexusControlAdmin(authUser.email)) {
+          const rawVariant =
+            typeof window !== "undefined"
+              ? window.sessionStorage.getItem("nexus_corporate_sandbox")
+              : null;
+          const variant: InteractiveDemoVariant =
+            rawVariant === "carrier" ? "carrier" : "dispatcher";
+          setOnboardingRequired(false);
+          setUsingDemo(true);
+          setInteractiveDemo(true);
+          setInteractiveDemoVariant(variant);
+          setCorporateSandboxPreview(true);
+          setOrganizationName("Sandbox preview (not customer data)");
+          setCurrentProfileId(profile?.id ?? null);
+          setProfileRole((profile?.role as ProfileRole) ?? "Admin");
+          setTrialType(null);
+          setTrialEndsAt(null);
+          setIsBetaUser(false);
+          setHasStripeSubscription(true);
+          setPermissions(PERMISSIONS_FULL_ACCESS);
+          applyBundle(S, getInteractiveDemoBundle(variant));
+          return;
+        }
         setOnboardingRequired(true);
         setUsingDemo(false);
         setInteractiveDemo(false);
@@ -768,6 +796,7 @@ export function DashboardDataProvider({
       authSessionUserId,
       authSessionResolved,
       onboardingRequired,
+      corporateSandboxPreview,
       organizationName,
       carriers,
       drivers,
@@ -803,6 +832,7 @@ export function DashboardDataProvider({
       authSessionUserId,
       authSessionResolved,
       onboardingRequired,
+      corporateSandboxPreview,
       organizationName,
       carriers,
       drivers,
