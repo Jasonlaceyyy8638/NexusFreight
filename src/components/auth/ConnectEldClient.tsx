@@ -4,6 +4,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EldProvider } from "@/types/database";
 import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
+import { RevealableSecretInput } from "@/components/ui/RevealableSecretInput";
 
 const BRAND_BG = "#1A1C1E";
 const BRAND_ACCENT = "#3B82F6";
@@ -386,12 +387,14 @@ export function ConnectEldClient(props: {
                             {p.id === "samsara"
                               ? "Samsara API token"
                               : "Geotab API token or database credentials"}
-                            <input
-                              type="password"
+                            <RevealableSecretInput
                               autoComplete="off"
                               value={apiToken}
                               onChange={(e) => setApiToken(e.target.value)}
-                              className="mt-2 w-full rounded-xl border border-white/10 bg-[#0D0E10] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-[#3B82F6]/60"
+                              inputClassName="w-full rounded-xl border border-white/10 bg-[#0D0E10] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-[#3B82F6]/60"
+                              wrapperClassName="mt-2"
+                              showRevealLabel="Show token"
+                              hideRevealLabel="Hide token"
                               placeholder={
                                 p.id === "samsara"
                                   ? "Paste API token"

@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { MarketingNav } from "@/components/landing/MarketingNav";
+import { RevealableSecretInput } from "@/components/ui/RevealableSecretInput";
 import { createClient } from "@/lib/supabase/client";
 
-const inputClass =
-  "mt-1.5 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
+const inputFieldClass =
+  "w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
+const inputClass = `mt-1.5 ${inputFieldClass}`;
 
 function safeNextPath(raw: string | null): string {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -85,10 +87,10 @@ export function LoginClient() {
           </label>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
             Password
-            <input
-              type="password"
+            <RevealableSecretInput
               autoComplete="current-password"
-              className={inputClass}
+              inputClassName={inputFieldClass}
+              wrapperClassName="mt-1.5"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

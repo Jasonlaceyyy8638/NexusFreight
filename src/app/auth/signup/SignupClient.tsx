@@ -14,13 +14,15 @@ import {
   attachStripeCheckoutSession,
   fetchStripeSignupSessionContext,
 } from "@/lib/stripe/signup-checkout-session";
+import { RevealableSecretInput } from "@/components/ui/RevealableSecretInput";
 
 type RoleChoice = "dispatcher" | "carrier" | null;
 
 const FMCSA_MC_MIN_DIGITS = 6;
 
-const inputClass =
-  "mt-1.5 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
+const inputFieldClass =
+  "w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
+const inputClass = `mt-1.5 ${inputFieldClass}`;
 
 /** FMCSA service uses snake_case; map once to signup field names (legalName / dotNumber). */
 function mapFmcsaResponseToSignupFields(data: FmcsaCompanyData) {
@@ -676,12 +678,12 @@ export function SignupClient() {
                   </label>
                   <label className="block text-sm font-medium text-slate-200">
                     Password
-                    <input
-                      type="password"
+                    <RevealableSecretInput
                       required
                       autoComplete="new-password"
                       minLength={6}
-                      className={inputClass}
+                      inputClassName={inputFieldClass}
+                      wrapperClassName="mt-1.5"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -710,12 +712,12 @@ export function SignupClient() {
               </label>
               <label className="block text-sm font-medium text-slate-200">
                 Password
-                <input
-                  type="password"
+                <RevealableSecretInput
                   required
                   autoComplete="new-password"
                   minLength={6}
-                  className={inputClass}
+                  inputClassName={inputFieldClass}
+                  wrapperClassName="mt-1.5"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />

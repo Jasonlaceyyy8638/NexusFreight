@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import { RevealableSecretInput } from "@/components/ui/RevealableSecretInput";
 import { isTeamAdmin } from "@/lib/permissions";
 import type { EldProvider } from "@/types/database";
 
@@ -204,12 +205,14 @@ export function DashboardIntegrationsPage() {
             </p>
             <label className="mt-4 block text-xs font-medium uppercase tracking-wider text-slate-500">
               API key / token
-              <input
-                type="password"
+              <RevealableSecretInput
                 autoComplete="off"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
-                className="mt-2 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-[#007bff]/50"
+                inputClassName="w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-[#007bff]/50"
+                wrapperClassName="mt-2"
+                showRevealLabel="Show API key or token"
+                hideRevealLabel="Hide API key or token"
                 placeholder="••••••••"
               />
             </label>

@@ -16,7 +16,7 @@ import { NexusFreightShieldSection } from "@/components/landing/NexusFreightShie
 import { SecurityDataTrustSection } from "@/components/landing/SecurityDataTrustSection";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import LandingPricingCards from "@/components/landing/LandingPricingCards";
-import { WhoWeServeSection } from "@/components/landing/WhoWeServeSection";
+import { LandingBridgeSection } from "@/components/landing/LandingBridgeSection";
 
 export default function Home() {
   return (
@@ -88,7 +88,7 @@ export default function Home() {
 
           <IntegrationPartnersSection />
 
-          <WhoWeServeSection />
+          <LandingBridgeSection />
 
           <LandingPricingCards />
 
