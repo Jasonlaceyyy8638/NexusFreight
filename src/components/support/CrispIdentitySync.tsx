@@ -60,13 +60,15 @@ function pushIdentityToCrisp(input: {
   }
   q.push(["set", "user:nickname", [input.nickname]]);
 
-  const pairs: [string, string][] = [["is_beta", input.is_beta ? "true" : "false"]];
+  const pairs: [string, string | boolean][] = [
+    ["is_beta", input.is_beta],
+  ];
   const trial = input.trial_expiry?.trim();
   if (trial) {
     pairs.push(["trial_expiry", trial]);
   }
-  // Shape: ["set", "session:data", [["k","v"], ...]] — do not wrap `pairs` again or Crisp throws "Invalid data".
-  q.push(["set", "session:data", pairs]);
+  // Crisp docs: $crisp.push(["set", "session:data", [[[k,v], ...]]]) — third arg is [ pairs ], not pairs.
+  q.push(["set", "session:data", [pairs]]);
 }
 
 export function CrispIdentitySync() {
