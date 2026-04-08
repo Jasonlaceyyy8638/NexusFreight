@@ -1,52 +1,5 @@
 import Link from "next/link";
-
-function IphoneLoadCardMockup() {
-  return (
-    <div
-      className="relative mx-auto w-full max-w-[280px]"
-      aria-hidden
-    >
-      <div className="rounded-[2.75rem] border-[10px] border-slate-900 bg-slate-900 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
-        <div className="overflow-hidden rounded-[2rem] bg-[#0a0b0d]">
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="h-7 w-[88px] rounded-full bg-black ring-1 ring-white/10" />
-          </div>
-          <div className="px-3 pb-8 pt-2">
-            <div className="rounded-2xl bg-white p-4 text-left text-slate-900 shadow-lg ring-1 ring-slate-200/80">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Active load
-              </p>
-              <div className="mt-4 space-y-3">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500">Pickup</p>
-                  <p className="mt-0.5 text-sm font-semibold leading-snug">
-                    Columbus, OH
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500">Dropoff</p>
-                  <p className="mt-0.5 text-sm font-semibold leading-snug">
-                    Nashville, TN
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                tabIndex={-1}
-                className="mt-5 w-full rounded-2xl bg-[#22c55e] py-3.5 text-base font-bold text-white shadow-[0_8px_24px_rgba(34,197,94,0.35)]"
-              >
-                Accept
-              </button>
-            </div>
-            <p className="mt-4 text-center text-[10px] text-slate-500">
-              Preview — not functional
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { DriverAppPreview } from "@/components/landing/DriverAppPreview";
 
 export function NativeDriverAppSection() {
   return (
@@ -57,19 +10,46 @@ export function NativeDriverAppSection() {
       <div className="mx-auto max-w-6xl">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="order-2 lg:order-1">
-            <IphoneLoadCardMockup />
+            <DriverAppPreview />
           </div>
           <div className="order-1 text-center lg:order-2 lg:text-left">
             <h2
               id="native-driver-app-heading"
               className="text-3xl font-semibold tracking-tight text-white sm:text-4xl"
             >
-              The Road Ahead: Native Driver App.
+              The Road Ahead: Native Driver Experience.
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-400 lg:mx-0">
               Stop chasing drivers with texts. Our upcoming native app will give
               your drivers a one-tap command center. Free push notifications,
               real-time GPS tracking, and instant BOL uploads coming soon.
+            </p>
+            <div className="mx-auto mt-5 max-w-xl space-y-3 text-left text-slate-400 lg:mx-0">
+              <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                What the driver app is for
+              </p>
+              <ul className="list-inside list-disc space-y-2 text-base leading-relaxed marker:text-[#3B82F6]">
+                <li>
+                  <span className="text-slate-300">For drivers on the road:</span>{" "}
+                  see assigned loads, accept or decline offers, and view pickup
+                  and dropoff details without digging through texts or calls.
+                </li>
+                <li>
+                  <span className="text-slate-300">Fewer check-in calls:</span>{" "}
+                  share status, ETAs, and paperwork (including BOL photos) from
+                  the cab so the office stays in the loop.
+                </li>
+                <li>
+                  <span className="text-slate-300">Built for the job:</span>{" "}
+                  large tap targets, clear next steps, and alerts when something
+                  changes — not another bloated “do everything” app.
+                </li>
+              </ul>
+            </div>
+            <p className="mx-auto mt-5 max-w-xl text-base font-medium text-slate-300 lg:mx-0">
+              <span className="text-white">Coming soon</span>
+              {" "}
+              on iOS and Android — simple, fast, and built for life on the road.
             </p>
             <div className="mt-10">
               <Link
