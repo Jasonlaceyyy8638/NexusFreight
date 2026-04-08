@@ -33,7 +33,6 @@ import {
 } from "@/lib/carrier-authority";
 import {
   effectiveOrgIdFromProfile,
-  organizationNameFromProfile,
   orgTypeFromEmbed,
   profileHasWorkspaceLink,
 } from "@/lib/dashboard/workspace-access";
@@ -332,7 +331,7 @@ export function DashboardDataProvider({
     } = await supabase.auth.getUser();
 
     const profileSelect =
-      "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id, organizations ( id, name, type )" as const;
+      "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id" as const;
     const { data: profileRow, error: profileError } = authUser?.id
       ? await supabase
           .from("profiles")
@@ -440,7 +439,6 @@ export function DashboardDataProvider({
     setOnboardingRequired(false);
     setUsingDemo(false);
     setOrgId(resolvedOrgId);
-    setOrganizationName(organizationNameFromProfile(profile));
     setCurrentProfileId(profile.id);
     setProfileRole(profile.role as ProfileRole);
     setTrialType((profile.trial_type as TrialType) ?? null);
@@ -460,20 +458,19 @@ export function DashboardDataProvider({
         permRow as Partial<DashboardPermissionFlags> | null
       )
     );
-    const embeddedType = orgTypeFromEmbed(profile.organizations, profile.role);
-    if (embeddedType) {
-      setOrgType(embeddedType);
+    const { data: orgMeta } = await supabase
+      .from("organizations")
+      .select("name, type")
+      .eq("id", resolvedOrgId)
+      .maybeSingle();
+    const om = orgMeta as { name?: string | null; type?: string | null } | null;
+    if (om) {
+      const n = typeof om.name === "string" ? om.name.trim() : "";
+      setOrganizationName(n.length ? n : null);
+      setOrgType(om.type === "Carrier" ? "Carrier" : "Agency");
     } else {
-      const { data: orgRow } = await supabase
-        .from("organizations")
-        .select("type")
-        .eq("id", resolvedOrgId)
-        .maybeSingle();
-      const t =
-        orgRow && (orgRow as { type?: string }).type === "Carrier"
-          ? "Carrier"
-          : "Agency";
-      setOrgType(t);
+      setOrganizationName(null);
+      setOrgType(orgTypeFromEmbed(null, profile.role) ?? "Agency");
     }
 
     const [cRes, dRes, lRes, tRes, eRes] = await Promise.all([

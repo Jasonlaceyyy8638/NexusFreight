@@ -31,7 +31,7 @@ export default async function DashboardLayout({
     if (serverAuthUserId) {
       const { data: profileRow } = await supabase
         .from("profiles")
-        .select("org_id, role, organizations ( id, name, type )")
+        .select("org_id, role")
         .eq("id", serverAuthUserId)
         .maybeSingle();
       serverOnboardingRequired = !profileHasWorkspaceLink(profileRow);

@@ -36,7 +36,6 @@ type ProfileGateRow = {
   trial_ends_at: string | null;
   stripe_subscription_id: string | null;
   stripe_subscription_status: string | null;
-  organizations?: { id: string; name?: string; type?: string } | null;
 };
 
 export async function proxy(request: NextRequest) {
@@ -80,7 +79,7 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase
       .from("profiles")
       .select(
-        "role, org_id, trial_ends_at, stripe_subscription_id, stripe_subscription_status, organizations ( id, name, type )"
+        "role, org_id, trial_ends_at, stripe_subscription_id, stripe_subscription_status"
       )
       .eq("id", uid)
       .maybeSingle();
