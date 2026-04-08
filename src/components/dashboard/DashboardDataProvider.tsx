@@ -460,7 +460,7 @@ export function DashboardDataProvider({
         permRow as Partial<DashboardPermissionFlags> | null
       )
     );
-    const embeddedType = orgTypeFromEmbed(profile.organizations);
+    const embeddedType = orgTypeFromEmbed(profile.organizations, profile.role);
     if (embeddedType) {
       setOrgType(embeddedType);
     } else {

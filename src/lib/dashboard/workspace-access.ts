@@ -1,7 +1,20 @@
 /**
  * "Missing company workspace" banner uses this — not MC/DOT/carrier_id.
  * Dispatchers and admins only need a linked organization row (Agency or Carrier).
+ *
+ * DB schema: `organizations.type` is only **Agency** | **Carrier** (CHECK).
+ * Dispatch/3PL tenants use **Agency**; fleet tenants use **Carrier**. There is no
+ * `dispatcher` org type — use profile.role (Dispatcher / Admin / ...) for the user.
  */
+
+function workspaceGateDebug(payload: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  const enabled =
+    process.env.NODE_ENV === "development" ||
+    process.env.NEXT_PUBLIC_DEBUG_WORKSPACE === "1";
+  if (!enabled) return;
+  console.log("[workspace-access]", payload);
+}
 
 export type OrgEmbed = {
   id: string;
@@ -43,19 +56,47 @@ export function profileHasWorkspaceLink(
     organizations?: unknown;
   } | null | undefined
 ): boolean {
-  if (!profile) return false;
-  if (normalizeOrgId(profile.org_id)) return true;
-  const role = profile.role;
-  if (role === "Driver") return false;
-  return Boolean(embedOrg(profile.organizations)?.id);
+  const orgId = normalizeOrgId(profile?.org_id);
+  const embed = embedOrg(profile?.organizations);
+  const role = profile?.role ?? null;
+
+  let result: boolean;
+  if (!profile) {
+    result = false;
+  } else if (orgId) {
+    result = true;
+  } else if (role === "Driver") {
+    result = false;
+  } else {
+    result = Boolean(embed?.id);
+  }
+
+  workspaceGateDebug({
+    profileRole: role,
+    org_id: orgId,
+    embedOrgId: embed?.id ?? null,
+    profileHasWorkspaceLink: result,
+  });
+
+  return result;
 }
 
+/**
+ * Org type from FK embed, or infer **Agency** for Dispatcher when `type` is missing
+ * (dispatcher tenants are always Agency orgs in this schema).
+ */
 export function orgTypeFromEmbed(
-  organizations: unknown
+  organizations: unknown,
+  profileRole?: string | null
 ): "Carrier" | "Agency" | null {
   const e = embedOrg(organizations);
-  if (!e?.type) return null;
-  return e.type === "Carrier" ? "Carrier" : "Agency";
+  if (e?.type) {
+    return e.type === "Carrier" ? "Carrier" : "Agency";
+  }
+  if (profileRole === "Dispatcher") {
+    return "Agency";
+  }
+  return null;
 }
 
 /** Prefer `profiles.org_id`; fall back to embedded FK if present. */
