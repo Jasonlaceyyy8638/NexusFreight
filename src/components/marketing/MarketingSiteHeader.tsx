@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
 import { NavDesktopAppInstallButton } from "@/components/pwa/NavDesktopAppInstallButton";
 
@@ -67,6 +67,21 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
     setMobileOpen(false);
   };
 
+  /** Next.js Link to `/#pricing` on the same page does not scroll to #pricing. */
+  function scrollToPricingSection(e: MouseEvent<HTMLAnchorElement>) {
+    if (pathname !== "/") {
+      setMobileOpen(false);
+      return;
+    }
+    e.preventDefault();
+    setMobileOpen(false);
+    const el = document.getElementById("pricing");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.history.replaceState(null, "", "#pricing");
+    }
+  }
+
   return (
     <>
       <header
@@ -101,6 +116,13 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
               Support
             </Link>
             <Link
+              href="/#pricing"
+              className="transition-colors hover:text-white"
+              onClick={scrollToPricingSection}
+            >
+              Pricing
+            </Link>
+            <Link
               href={PRODUCT_TOUR_HREF}
               className="transition-colors hover:text-white"
             >
@@ -114,8 +136,9 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
               Request Demo
             </Link>
             <Link
-              href="/auth/signup"
+              href="/#pricing"
               className="rounded-md border border-[#007bff]/40 bg-[#007bff]/10 px-3 py-1.5 font-semibold text-slate-100 transition-colors hover:border-[#007bff]/60 hover:bg-[#007bff]/20"
+              onClick={scrollToPricingSection}
             >
               Join the Beta
             </Link>
@@ -183,6 +206,13 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
                 onClick={closeMobileThenNavigate}
               >
                 Product Tour
+              </Link>
+              <Link
+                href="/#pricing"
+                className="min-h-[52px] rounded-xl px-4 py-4 text-xl font-semibold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+                onClick={scrollToPricingSection}
+              >
+                Pricing
               </Link>
               <Link
                 href="/resources/support"

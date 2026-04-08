@@ -2,62 +2,253 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
+import type { FmcsaCompanyData } from "@/lib/fmcsa_service";
 import { MarketingNav } from "@/components/landing/MarketingNav";
 import { createClient } from "@/lib/supabase/client";
-import { useFmcsaMcLookup } from "@/lib/hooks/useFmcsaMcLookup";
+import { fetchFmcsaLookupPost } from "@/lib/hooks/useFmcsaMcLookup";
 import { isDispatcherPhoneProvided } from "@/lib/phone/dispatcher-phone";
+import {
+  attachStripeCheckoutSession,
+  fetchStripeSignupSessionContext,
+} from "@/lib/stripe/signup-checkout-session";
 
 type RoleChoice = "dispatcher" | "carrier" | null;
 
+const FMCSA_MC_MIN_DIGITS = 6;
+
 const inputClass =
   "mt-1.5 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
+
+/** FMCSA service uses snake_case; map once to signup field names (legalName / dotNumber). */
+function mapFmcsaResponseToSignupFields(data: FmcsaCompanyData) {
+  return {
+    legalName: data.legal_name,
+    dotNumber: data.dot_number,
+    carrier: data,
+  };
+}
 
 export function SignupClient() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
+  const stripeSessionId = searchParams.get("session_id");
+
   const [role, setRole] = useState<RoleChoice>(null);
   const [carrierStep, setCarrierStep] = useState(1);
   const [email, setEmail] = useState("");
+  const [stripeEmailLocked, setStripeEmailLocked] = useState(false);
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [agencyName, setAgencyName] = useState("");
+  const [dotNumber, setDotNumber] = useState("");
   const [dispatcherPhone, setDispatcherPhone] = useState("");
   const [mcInput, setMcInput] = useState("");
+  const isFetching = useRef(false);
+  /** MC digits `carrierData` was verified for; state so render stays in sync with verification. */
+  const [verifiedMcDigits, setVerifiedMcDigits] = useState<string | null>(null);
+  const [fmcsaLoading, setFmcsaLoading] = useState(false);
+  const [carrierData, setCarrierData] = useState<FmcsaCompanyData | null>(null);
+  const [fmcsaError, setFmcsaError] = useState<{
+    message: string;
+    code?: string;
+  } | null>(null);
+  const [carrierFullName, setCarrierFullName] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(!!stripeSessionId);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [stripeReady, setStripeReady] = useState(false);
 
   useEffect(() => {
-    const t = searchParams.get("type");
-    if (t === "carrier") {
-      setRole("carrier");
-      setCarrierStep(1);
-    } else if (t === "dispatcher") {
-      setRole("dispatcher");
-    }
-  }, [searchParams]);
+    if (stripeSessionId) return;
+    if (typeof window === "undefined") return;
+    window.location.replace(`${window.location.origin}/#pricing`);
+  }, [stripeSessionId]);
 
-  const fmcsa = useFmcsaMcLookup(
-    role === "carrier" && carrierStep >= 1 ? mcInput : ""
-  );
+  useEffect(() => {
+    if (!stripeSessionId) return;
+    if (!supabase) {
+      setSessionLoading(false);
+      setSessionError(
+        "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to continue."
+      );
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      setSessionLoading(true);
+      setSessionError(null);
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (auth.user) {
+          const { data: sessWrap } = await supabase.auth.getSession();
+          const token = sessWrap.session?.access_token;
+          if (token) {
+            const attached = await attachStripeCheckoutSession(
+              stripeSessionId,
+              token
+            );
+            if (cancelled) return;
+            if (attached.ok) {
+              router.replace("/dashboard");
+              router.refresh();
+              return;
+            }
+            setSessionError(attached.error);
+            setStripeReady(false);
+            return;
+          }
+        }
+
+        const ctx = await fetchStripeSignupSessionContext(stripeSessionId);
+        if (cancelled) return;
+        setEmail(ctx.email);
+        setStripeEmailLocked(true);
+        document.cookie = `nexus_signup_plan=${ctx.billingPlan}; Path=/; Max-Age=86400; SameSite=Lax`;
+        if (ctx.signupRole === "carrier") {
+          setRole("carrier");
+          setCarrierStep(1);
+        } else {
+          setRole("dispatcher");
+        }
+        setStripeReady(true);
+      } catch (e) {
+        if (!cancelled) {
+          setSessionError(
+            e instanceof Error ? e.message : "Could not load checkout session."
+          );
+        }
+      } finally {
+        if (!cancelled) setSessionLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stripeSessionId, supabase, router]);
+
+  const mcDigitsNormalized = mcInput.replace(/\D/g, "");
+  const mcDigitCount = mcDigitsNormalized.length;
+
+  const handleMcInputChange = (value: string) => {
+    const nextDigits = value.replace(/\D/g, "");
+    setMcInput(value);
+    const v = verifiedMcDigits;
+    if (v !== null && nextDigits !== v) {
+      setVerifiedMcDigits(null);
+      setCarrierData(null);
+      setDotNumber("");
+      setAgencyName("");
+      setFmcsaError(null);
+    }
+  };
+
+  const handleCheckMC = async () => {
+    if (isFetching.current) {
+      return;
+    }
+    if (!(role === "carrier" && carrierStep === 1)) {
+      return;
+    }
+
+    const raw = mcInput.trim();
+    const digits = raw.replace(/\D/g, "");
+    if (!raw || digits.length < FMCSA_MC_MIN_DIGITS) {
+      setFmcsaError({
+        message: "Enter at least 6 digits before checking.",
+      });
+      return;
+    }
+
+    isFetching.current = true;
+    flushSync(() => {
+      setFmcsaLoading(true);
+      setFmcsaError(null);
+    });
+
+    try {
+      const result = await fetchFmcsaLookupPost(raw);
+      if (!result.ok) {
+        const msg =
+          result.code === "missing_key"
+            ? "Configuration Error: Missing FMCSA Key"
+            : typeof result.error === "string"
+              ? result.error
+              : "MC Number not found. Please verify and try again.";
+        console.error("[SignupClient] FMCSA lookup failed", {
+          code: result.code,
+          error: result.error,
+          message: msg,
+        });
+        setVerifiedMcDigits(null);
+        setCarrierData(null);
+        setDotNumber("");
+        setAgencyName("");
+        setFmcsaError({ message: msg, code: result.code });
+        return;
+      }
+      const data = mapFmcsaResponseToSignupFields(result.data);
+      setAgencyName(data.legalName);
+      setDotNumber(data.dotNumber);
+      setCarrierData(data.carrier);
+      setVerifiedMcDigits(digits);
+      setCarrierStep(2);
+      console.log(
+        "[SignupClient] FMCSA lookup success",
+        data.legalName,
+        data.dotNumber
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Unexpected error during FMCSA lookup.";
+      console.error("[SignupClient] FMCSA lookup exception", err);
+      setVerifiedMcDigits(null);
+      setCarrierData(null);
+      setDotNumber("");
+      setAgencyName("");
+      setFmcsaError({ message: msg, code: "client_exception" });
+    } finally {
+      isFetching.current = false;
+      setFmcsaLoading(false);
+    }
+  };
+
+  const resolvedFmcsaData: FmcsaCompanyData | null =
+    carrierData &&
+    verifiedMcDigits !== null &&
+    verifiedMcDigits === mcDigitsNormalized &&
+    mcDigitCount >= FMCSA_MC_MIN_DIGITS
+      ? carrierData
+      : null;
+
+  const isFmcsaVerifiedForMc = resolvedFmcsaData != null;
+
+  const fmcsaPendingStep1 =
+    role === "carrier" &&
+    carrierStep === 1 &&
+    mcDigitCount >= FMCSA_MC_MIN_DIGITS &&
+    !isFmcsaVerifiedForMc &&
+    !fmcsaLoading &&
+    !fmcsaError;
 
   const companyName =
-    fmcsa.status === "success" ? fmcsa.data.legal_name : "";
-  const dotNumber =
-    fmcsa.status === "success" ? fmcsa.data.dot_number : "";
+    resolvedFmcsaData?.legal_name ?? agencyName;
   const authorityInactive =
-    fmcsa.status === "success" && fmcsa.data.authority_status !== "Active";
-
-  const canCarrierStep1Next =
-    role === "carrier" && carrierStep === 1 && fmcsa.status === "success";
+    resolvedFmcsaData != null &&
+    resolvedFmcsaData.authority_status !== "Active";
 
   const canSubmitCarrier =
     role === "carrier" &&
     carrierStep === 3 &&
-    fmcsa.status === "success" &&
+    resolvedFmcsaData != null &&
+    !fmcsaLoading &&
     email.trim() &&
     password.length >= 6;
 
@@ -78,6 +269,10 @@ export function SignupClient() {
       );
       return;
     }
+    if (!stripeSessionId) {
+      setFormError("Missing checkout session. Start from pricing.");
+      return;
+    }
     if (!role) {
       setFormError("Choose whether you are a dispatcher or a carrier.");
       return;
@@ -87,7 +282,7 @@ export function SignupClient() {
         setFormError("Complete the business verification steps first.");
         return;
       }
-      if (fmcsa.status !== "success") {
+      if (!resolvedFmcsaData) {
         setFormError(
           "FMCSA data is not ready. Go back and re-verify your MC number."
         );
@@ -116,35 +311,48 @@ export function SignupClient() {
           },
         });
       } else {
-        if (fmcsa.status !== "success") {
+        if (!resolvedFmcsaData) {
           setFormError("FMCSA data is not ready. Try again.");
           return;
         }
-        const d = fmcsa.data;
+        const d = resolvedFmcsaData;
+        const fleetName = agencyName.trim() || d.legal_name;
+        const dotForSignup = d.dot_number.trim() || dotNumber.trim();
         signUpResult = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
             data: {
               role_type: "carrier",
-              company_name: d.legal_name,
-              dot_number: d.dot_number,
+              company_name: fleetName,
+              dot_number: dotForSignup,
               mc_number: d.mc_number || mcInput.replace(/\D/g, ""),
               is_active_authority:
                 d.authority_status === "Active" ? "true" : "false",
+              full_name: carrierFullName.trim() || undefined,
             },
           },
         });
       }
       if (signUpResult.error) throw signUpResult.error;
-      if (signUpResult.data.session) {
-        router.push("/auth/complete-subscription");
-        router.refresh();
+
+      const accessToken = signUpResult.data.session?.access_token;
+      if (!accessToken) {
+        setDoneMessage(
+          "Account created. Confirm your email, then sign in with the same address you used in Stripe — open this page again with your checkout link to finish setup."
+        );
         return;
       }
-      setDoneMessage(
-        "Account created. After you confirm your email, sign in — you’ll be prompted to finish Stripe Checkout (trial aligned to your plan; usually nothing due today, no card until billing)."
+
+      const attach = await attachStripeCheckoutSession(
+        stripeSessionId,
+        accessToken
       );
+      if (!attach.ok) {
+        throw new Error(attach.error);
+      }
+      router.push("/dashboard");
+      router.refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Sign up failed");
     } finally {
@@ -152,60 +360,69 @@ export function SignupClient() {
     }
   };
 
-  const showRolePicker = !searchParams.get("type");
+  if (!stripeSessionId) {
+    return (
+      <div className="flex min-h-[100dvh] min-h-screen h-full flex-col bg-[#1A1C1E] text-white">
+        <MarketingNav />
+        <main className="mx-auto max-w-lg px-6 py-16 text-center">
+          <p className="text-sm text-slate-400">Redirecting to pricing…</p>
+          <Link href="/#pricing" className="mt-4 inline-block text-[#3395ff] hover:underline">
+            Go to pricing
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
+  if (sessionLoading) {
+    return (
+      <div className="flex min-h-[100dvh] min-h-screen h-full flex-col bg-[#1A1C1E] text-white">
+        <MarketingNav />
+        <main className="mx-auto max-w-lg px-6 py-16 text-center text-sm text-slate-400">
+          Loading your checkout…
+        </main>
+      </div>
+    );
+  }
+
+  if (sessionError || !stripeReady) {
+    return (
+      <div className="flex min-h-[100dvh] min-h-screen h-full flex-col bg-[#1A1C1E] text-white">
+        <MarketingNav />
+        <main className="mx-auto max-w-lg px-6 py-16">
+          <p className="text-sm text-red-400">{sessionError ?? "Invalid session."}</p>
+          <Link
+            href="/#pricing"
+            className="mt-4 inline-block text-[#3395ff] hover:underline"
+          >
+            Back to pricing
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#0D0E10] text-white">
+    <div className="flex min-h-[100dvh] min-h-screen h-full flex-col bg-[#1A1C1E] text-white">
       <MarketingNav />
-      <main className="mx-auto max-w-lg px-6 py-16">
+      <div className="mx-auto flex h-full min-h-screen w-full max-w-lg flex-1 flex-col bg-[#1A1C1E] px-6 py-16">
         <h1 className="text-2xl font-semibold tracking-tight">Create account</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Carriers register as a verified business (MC + FMCSA). Dispatchers
-          onboard an agency workspace. The first user for a new organization is
-          the workspace Admin with full permissions; only admins can change team
-          permission toggles for others.
+          Your trial is active in Stripe. Use the same email you entered at
+          checkout. Carriers verify MC/DOT with FMCSA before we create your
+          workspace.
         </p>
 
-        <form className="mt-10 space-y-8" onSubmit={(e) => void handleSubmit(e)}>
-          {showRolePicker ? (
-            <div>
-              <p className="text-sm font-medium text-slate-200">
-                Are you a Dispatcher or a Carrier?
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRole("dispatcher");
-                    setFormError(null);
-                  }}
-                  className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors ${
-                    role === "dispatcher"
-                      ? "border-[#007bff] bg-[#007bff]/15 text-white"
-                      : "border-white/15 bg-white/5 text-slate-300 hover:border-white/25"
-                  }`}
-                >
-                  Dispatcher
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRole("carrier");
-                    setCarrierStep(1);
-                    setFormError(null);
-                  }}
-                  className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors ${
-                    role === "carrier"
-                      ? "border-[#007bff] bg-[#007bff]/15 text-white"
-                      : "border-white/15 bg-white/5 text-slate-300 hover:border-white/25"
-                  }`}
-                >
-                  Carrier
-                </button>
-              </div>
-            </div>
-          ) : null}
-
+        <form
+          className="mt-10 flex flex-1 flex-col space-y-8"
+          onSubmit={(e) => {
+            if (role === "carrier" && carrierStep < 3) {
+              e.preventDefault();
+              return;
+            }
+            void handleSubmit(e);
+          }}
+        >
           {role === "carrier" ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between text-xs text-slate-500">
@@ -231,41 +448,93 @@ export function SignupClient() {
                     Enter your MC number
                   </p>
                   <p className="text-xs text-slate-500">
-                    We pull your legal business name and DOT from FMCSA before
-                    you create login credentials.
+                    Enter at least <strong className="text-slate-300">6 digits</strong>{" "}
+                    (MC numbers are usually 6 or 7). Click{" "}
+                    <strong className="text-slate-300">Check MC number now</strong> to
+                    verify with FMCSA — legal name and DOT appear on the next step
+                    after a successful lookup.
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Staging without FMCSA: set server env{" "}
+                    <code className="rounded border border-white/15 px-1 text-slate-400">
+                      FMCSA_MOCK_DOCKET=1234567
+                    </code>{" "}
+                    (digits only) to return{" "}
+                    <strong className="text-slate-400">Nexus Test Carrier</strong>{" "}
+                    for that MC. Live lookup uses{" "}
+                    <code className="rounded border border-white/15 px-1 text-slate-400">
+                      FMCSA_API_KEY
+                    </code>{" "}
+                    (or{" "}
+                    <code className="rounded border border-white/15 px-1 text-slate-400">
+                      FMCSA_WEB_KEY
+                    </code>
+                    ). Local dev defaults to mock MC{" "}
+                    <strong className="text-slate-400">1234567</strong> when unset.
                   </p>
                   <label className="block text-sm font-medium text-slate-200">
                     MC number
                     <input
                       type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
                       className={inputClass}
                       value={mcInput}
-                      onChange={(e) => setMcInput(e.target.value)}
-                      placeholder="MC-123456 or digits"
+                      onChange={(e) => handleMcInputChange(e.target.value)}
+                      placeholder="e.g. 123456 or 1234567"
                     />
                   </label>
-                  {fmcsa.status === "loading" ? (
-                    <p className="text-xs text-slate-500">Checking FMCSA…</p>
-                  ) : null}
-                  {fmcsa.status === "missing_key" ? (
-                    <p className="rounded-md border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
-                      FMCSA lookup is not configured — set{" "}
-                      <code className="text-amber-200/90">FMCSA_WEB_KEY</code> or{" "}
-                      <code className="text-amber-200/90">FMCSA_WEBKEY</code> on
-                      the server.
+                  {mcDigitCount > 0 && mcDigitCount < 6 ? (
+                    <p className="text-xs text-amber-200/90">
+                      Enter at least 6 digits, then click Check MC number now.
                     </p>
                   ) : null}
-                  {fmcsa.status === "error" ? (
-                    <p className="text-xs text-red-300">{fmcsa.message}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={
+                        mcDigitCount < FMCSA_MC_MIN_DIGITS || fmcsaLoading
+                      }
+                      onClick={() => void handleCheckMC()}
+                      className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {fmcsaLoading ? (
+                        <span
+                          className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-white/25 border-t-white"
+                          aria-hidden
+                        />
+                      ) : null}
+                      {fmcsaLoading ? "Checking…" : "Check MC number now"}
+                    </button>
+                    <span className="text-[11px] text-slate-600">
+                      FMCSA lookup runs only when you click this button
+                    </span>
+                  </div>
+                  {fmcsaLoading ? (
+                    <p className="text-xs font-medium text-[#3395ff]">
+                      Pulling carrier data from FMCSA…
+                    </p>
                   ) : null}
-                  <button
-                    type="button"
-                    disabled={!canCarrierStep1Next}
-                    onClick={() => setCarrierStep(2)}
-                    className="w-full rounded-md bg-[#007bff] py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Continue
-                  </button>
+                  {fmcsaError ? (
+                    <div
+                      className="rounded-md border border-red-500/35 bg-red-950/35 px-3 py-2 text-xs text-red-200"
+                      role="alert"
+                    >
+                      <p className="whitespace-pre-wrap">{fmcsaError.message}</p>
+                      {fmcsaError.code ? (
+                        <p className="mt-1 font-mono text-[11px] text-red-300/85">
+                          code: {fmcsaError.code}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {fmcsaPendingStep1 ? (
+                    <p className="text-xs text-slate-500">
+                      Click <strong className="text-slate-400">Check MC number now</strong>{" "}
+                      to verify. After a match, you&apos;ll move to confirm your business
+                      automatically.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -274,21 +543,36 @@ export function SignupClient() {
                   <p className="text-sm font-medium text-slate-200">
                     Confirm your business
                   </p>
-                  {fmcsa.status === "success" ? (
+                  {!agencyName.trim() ? (
+                    <p
+                      className="rounded-md border border-red-500/40 bg-red-950/40 px-4 py-3 text-base font-semibold text-red-300"
+                      role="alert"
+                    >
+                      Data load failed - please try again.
+                    </p>
+                  ) : null}
+                  {resolvedFmcsaData ? (
                     <div className="space-y-3 rounded-lg border border-white/10 bg-[#121416]/80 p-4">
+                      <input type="hidden" name="company_name" value={agencyName} />
+                      <input type="hidden" name="dot_number" value={dotNumber} />
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                          Legal business name (FMCSA)
+                          Agency / fleet name
                         </p>
                         <FmcsaVerifiedBadge />
                       </div>
-                      <input
-                        type="text"
-                        readOnly
-                        className={`${inputClass} cursor-not-allowed font-medium`}
-                        value={companyName}
-                        aria-label="Legal business name from FMCSA"
-                      />
+                      <label className="block text-sm font-medium text-slate-200">
+                        <span className="sr-only">Agency or fleet legal name</span>
+                        <input
+                          type="text"
+                          readOnly
+                          className={`${inputClass} cursor-not-allowed font-medium opacity-90`}
+                          value={agencyName}
+                          onChange={(e) => setAgencyName(e.target.value)}
+                          aria-label="Agency or fleet name from FMCSA"
+                          aria-readonly="true"
+                        />
+                      </label>
                       <label className="block text-sm font-medium text-slate-200">
                         U.S. DOT number
                         <input
@@ -296,6 +580,8 @@ export function SignupClient() {
                           readOnly
                           className={`${inputClass} cursor-not-allowed opacity-90`}
                           value={dotNumber}
+                          onChange={(e) => setDotNumber(e.target.value)}
+                          aria-readonly="true"
                         />
                       </label>
                       {authorityInactive ? (
@@ -306,8 +592,9 @@ export function SignupClient() {
                       ) : null}
                       <button
                         type="button"
+                        disabled={!agencyName.trim() || !dotNumber.trim()}
                         onClick={() => setCarrierStep(3)}
-                        className="w-full rounded-md bg-[#007bff] py-2.5 text-sm font-semibold text-white"
+                        className="w-full rounded-md bg-[#007bff] py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Continue to login credentials
                       </button>
@@ -327,18 +614,37 @@ export function SignupClient() {
                   </p>
                   <p className="text-xs text-slate-500">
                     Use a company email you control. This account represents{" "}
-                    <span className="text-slate-300">{companyName}</span>, not an
-                    individual as the primary identifier.
+                    <span className="text-slate-300">
+                      {agencyName.trim() || companyName}
+                    </span>
+                    .
                   </p>
+                  <input type="hidden" name="company_name" value={agencyName} />
+                  <input type="hidden" name="dot_number" value={dotNumber} />
+                  <label className="block text-sm font-medium text-slate-200">
+                    Your name (optional)
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      className={inputClass}
+                      value={carrierFullName}
+                      onChange={(e) => setCarrierFullName(e.target.value)}
+                      placeholder="Primary contact name"
+                    />
+                  </label>
                   <label className="block text-sm font-medium text-slate-200">
                     Business email
                     <input
                       type="email"
                       required
                       autoComplete="email"
-                      className={inputClass}
+                      readOnly={stripeEmailLocked}
+                      aria-readonly={stripeEmailLocked}
+                      className={`${inputClass} ${stripeEmailLocked ? "cursor-not-allowed opacity-90" : ""}`}
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        if (!stripeEmailLocked) setEmail(e.target.value);
+                      }}
                     />
                   </label>
                   <label className="block text-sm font-medium text-slate-200">
@@ -366,9 +672,13 @@ export function SignupClient() {
                   type="email"
                   required
                   autoComplete="email"
-                  className={inputClass}
+                  readOnly={stripeEmailLocked}
+                  aria-readonly={stripeEmailLocked}
+                  className={`${inputClass} ${stripeEmailLocked ? "cursor-not-allowed opacity-90" : ""}`}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    if (!stripeEmailLocked) setEmail(e.target.value);
+                  }}
                 />
               </label>
               <label className="block text-sm font-medium text-slate-200">
@@ -463,7 +773,7 @@ export function SignupClient() {
             </Link>
           </p>
         </form>
-      </main>
+      </div>
     </div>
   );
 }

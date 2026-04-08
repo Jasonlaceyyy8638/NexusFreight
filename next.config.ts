@@ -1,19 +1,29 @@
 import type { NextConfig } from "next";
 import { resolveMapboxTokenFromProcessEnv } from "./src/lib/mapbox/resolve-mapbox-env";
+import {
+  resolveStripeMonthlyPriceIdFromEnv,
+  resolveStripeYearlyPriceIdFromEnv,
+} from "./src/lib/stripe/resolve-stripe-price-env";
 
 const mapboxToken = resolveMapboxTokenFromProcessEnv();
+const stripeMonthly = resolveStripeMonthlyPriceIdFromEnv();
+const stripeYearly = resolveStripeYearlyPriceIdFromEnv();
+
+const nextEnv: Record<string, string> = {};
+if (mapboxToken) nextEnv.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = mapboxToken;
+if (stripeMonthly) nextEnv.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY = stripeMonthly;
+if (stripeYearly) nextEnv.NEXT_PUBLIC_STRIPE_PRICE_ID_YEARLY = stripeYearly;
 
 const nextConfig: NextConfig = {
   // Browser code only sees NEXT_PUBLIC_*; map non-prefixed names into it at build/start.
-  ...(mapboxToken
-    ? {
-        env: {
-          NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: mapboxToken,
-        },
-      }
-    : {}),
+  ...(Object.keys(nextEnv).length > 0 ? { env: nextEnv } : {}),
   async redirects() {
     return [
+      {
+        source: "/signup",
+        destination: "/auth/signup",
+        permanent: false,
+      },
       {
         source: "/manifest.json",
         destination: "/manifest.webmanifest",

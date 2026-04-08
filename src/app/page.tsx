@@ -8,12 +8,14 @@ import { IntegrationPartnersSection } from "@/components/landing/IntegrationPart
 import { LandingFaqAccordion } from "@/components/landing/LandingFaqAccordion";
 import { LandingLeadCapture } from "@/components/landing/LandingLeadCapture";
 import { BetaLaunchBanner } from "@/components/landing/BetaLaunchBanner";
+import { LandingHashScroll } from "@/components/landing/LandingHashScroll";
 import { MarketingNav } from "@/components/landing/MarketingNav";
 import { MarketingPageBackdrop } from "@/components/landing/MarketingPageBackdrop";
 import { NativeDriverAppSection } from "@/components/landing/NativeDriverAppSection";
 import { NexusFreightShieldSection } from "@/components/landing/NexusFreightShieldSection";
 import { SecurityDataTrustSection } from "@/components/landing/SecurityDataTrustSection";
 import { SiteFooter } from "@/components/landing/SiteFooter";
+import LandingPricingCards from "@/components/landing/LandingPricingCards";
 import { WhoWeServeSection } from "@/components/landing/WhoWeServeSection";
 
 export default function Home() {
@@ -22,6 +24,7 @@ export default function Home() {
       <MarketingPageBackdrop />
 
       <div className="relative z-10 flex min-h-screen flex-col">
+        <LandingHashScroll />
         <BetaLaunchBanner />
         <MarketingNav />
 
@@ -86,6 +89,8 @@ export default function Home() {
           <IntegrationPartnersSection />
 
           <WhoWeServeSection />
+
+          <LandingPricingCards />
 
           <section
             id="features"

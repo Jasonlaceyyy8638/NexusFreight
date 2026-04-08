@@ -295,10 +295,11 @@ export function AddCarrierModal({
           ) : null}
           {fmcsa.kind === "missing_key" ? (
             <p className="rounded-md border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
-              FMCSA verification is unavailable. Set{" "}
-              <code className="text-amber-200/90">FMCSA_WEB_KEY</code> or{" "}
+              Configuration Error: Missing FMCSA Key — set{" "}
+              <code className="text-amber-200/90">FMCSA_API_KEY</code>,{" "}
+              <code className="text-amber-200/90">FMCSA_WEB_KEY</code>, or{" "}
               <code className="text-amber-200/90">FMCSA_WEBKEY</code> on the
-              server to add carriers.
+              server.
             </p>
           ) : null}
           {fmcsa.kind === "error" ? (

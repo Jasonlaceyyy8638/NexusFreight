@@ -38,6 +38,8 @@ export type Profile = {
   trial_ends_at?: string | null;
   is_beta_user?: boolean | null;
   stripe_subscription_id?: string | null;
+  /** Synced from Stripe webhooks (`subscription.status`). */
+  stripe_subscription_status?: string | null;
   stripe_customer_id?: string | null;
 };
 

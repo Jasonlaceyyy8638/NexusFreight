@@ -1,57 +1,175 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchCarrierData } from "@/app/actions/fmcsa";
+import { useCallback, useRef, useState } from "react";
 import type { FmcsaCompanyData } from "@/lib/fmcsa_service";
 
-export type FmcsaLookupState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; data: FmcsaCompanyData }
-  | { status: "error"; message: string; code?: string }
-  | { status: "missing_key" };
+type FetchCarrierDataResult =
+  | { ok: true; data: FmcsaCompanyData }
+  | { ok: false; error: string; code?: string };
 
-const MIN_DIGITS = 4;
-const DEBOUNCE_MS = 550;
+export async function fetchFmcsaLookupPost(
+  mc: string
+): Promise<FetchCarrierDataResult> {
+  let res: Response;
+  try {
+    res = await fetch("/api/fmcsa/lookup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ number: mc }),
+      cache: "no-store",
+    });
+  } catch (err) {
+    const msg =
+      err instanceof Error ? err.message : "Network error calling FMCSA lookup.";
+    return {
+      ok: false,
+      error: `Request failed: ${msg}`,
+      code: "network_error",
+    };
+  }
 
-export function useFmcsaMcLookup(mcInput: string) {
-  const [state, setState] = useState<FmcsaLookupState>({ status: "idle" });
+  let parsed: unknown;
+  try {
+    parsed = await res.json();
+  } catch {
+    return {
+      ok: false,
+      error: `Could not read FMCSA response (HTTP ${res.status}).`,
+      code: "parse_error",
+    };
+  }
 
-  useEffect(() => {
-    const digits = mcInput.replace(/\D/g, "");
-    if (!mcInput.trim() || digits.length < MIN_DIGITS) {
-      queueMicrotask(() => setState({ status: "idle" }));
+  const result = parsed as FetchCarrierDataResult & { error?: string; code?: string };
+  if (!result || typeof result !== "object" || !("ok" in result)) {
+    return {
+      ok: false,
+      error: `Invalid FMCSA response (HTTP ${res.status}).`,
+      code: "invalid_response",
+    };
+  }
+
+  if (!result.ok) {
+    const base =
+      typeof result.error === "string"
+        ? result.error
+        : "FMCSA lookup failed";
+    return {
+      ok: false,
+      error: res.ok ? base : `${base} (HTTP ${res.status})`,
+      code: result.code ?? (res.ok ? undefined : "http_error"),
+    };
+  }
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: `Unexpected HTTP ${res.status} with success-shaped JSON.`,
+      code: "http_error",
+    };
+  }
+
+  return result;
+}
+
+const MIN_DIGITS = 6;
+
+export type UseFmcsaManualMcLookupOptions = {
+  enabled: boolean;
+};
+
+/**
+ * FMCSA MC lookup — manual trigger only (no useEffect on MC input).
+ * Call `runLookup(mcInput)` from the "Check MC number now" button.
+ */
+export function useFmcsaManualMcLookup(options: UseFmcsaManualMcLookupOptions) {
+  const enabledRef = useRef(options.enabled);
+  enabledRef.current = options.enabled;
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [carrierData, setCarrierData] = useState<FmcsaCompanyData | null>(null);
+  /** Digits string this `carrierData` belongs to (must match current field to count as verified). */
+  const [verifiedDigits, setVerifiedDigits] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<{
+    message: string;
+    code?: string;
+  } | null>(null);
+
+  const requestIdRef = useRef(0);
+
+  const resetLookup = useCallback(() => {
+    requestIdRef.current += 1;
+    setIsLoading(false);
+    setCarrierData(null);
+    setVerifiedDigits(null);
+    setLookupError(null);
+  }, []);
+
+  const runLookup = useCallback(async (mcRaw: string) => {
+    if (!enabledRef.current) {
       return;
     }
 
-    queueMicrotask(() => setState({ status: "loading" }));
-    const t = window.setTimeout(async () => {
-      try {
-        const result = await fetchCarrierData(mcInput);
-        if (!result.ok) {
-          if (result.code === "missing_key") {
-            setState({ status: "missing_key" });
-            return;
-          }
-          setState({
-            status: "error",
-            message: result.error,
-            code: result.code,
-          });
-          return;
-        }
-        setState({ status: "success", data: result.data });
-      } catch {
-        setState({
-          status: "error",
-          message:
-            "MC Number not found. Please verify and try again.",
-        });
+    const raw = mcRaw.trim();
+    const digits = raw.replace(/\D/g, "");
+    if (!raw || digits.length < MIN_DIGITS) {
+      setLookupError({
+        message: "Enter at least 6 digits before checking.",
+      });
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    setIsLoading(true);
+    setLookupError(null);
+
+    try {
+      const result = await fetchFmcsaLookupPost(raw);
+      if (requestId !== requestIdRef.current) {
+        return;
       }
-    }, DEBOUNCE_MS);
 
-    return () => window.clearTimeout(t);
-  }, [mcInput]);
+      if (!result.ok) {
+        setCarrierData(null);
+        setVerifiedDigits(null);
+        const msg =
+          result.code === "missing_key"
+            ? "Configuration Error: Missing FMCSA Key"
+            : typeof result.error === "string"
+              ? result.error
+              : "MC Number not found. Please verify and try again.";
+        setLookupError({ message: msg, code: result.code });
+        return;
+      }
 
-  return state;
+      setCarrierData(result.data);
+      setVerifiedDigits(digits);
+      setLookupError(null);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      setCarrierData(null);
+      setVerifiedDigits(null);
+      setLookupError({
+        message:
+          err instanceof Error
+            ? err.message
+            : "Unexpected error during FMCSA lookup.",
+        code: "client_exception",
+      });
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
+
+  return {
+    isLoading,
+    carrierData,
+    verifiedDigits,
+    lookupError,
+    runLookup,
+    resetLookup,
+  };
 }

@@ -1,5 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  stripeSubscriptionAllowsAccess,
+} from "@/lib/stripe/subscription-access";
 
 const DEMO_COOKIE = "nexus_demo_mode" as const;
 
@@ -28,8 +31,10 @@ function dashboardGuestGate(request: NextRequest): NextResponse | null {
 
 type ProfileGateRow = {
   role: string;
+  org_id: string | null;
   trial_ends_at: string | null;
   stripe_subscription_id: string | null;
+  stripe_subscription_status: string | null;
 };
 
 export async function proxy(request: NextRequest) {
@@ -72,17 +77,25 @@ export async function proxy(request: NextRequest) {
   async function loadProfileGate(uid: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("role, trial_ends_at, stripe_subscription_id")
+      .select(
+        "role, org_id, trial_ends_at, stripe_subscription_id, stripe_subscription_status"
+      )
       .eq("id", uid)
       .maybeSingle();
     return data as ProfileGateRow | null;
   }
 
-  function accessAllowed(trial: ProfileGateRow | null) {
-    const paid = Boolean(trial?.stripe_subscription_id?.trim());
-    if (paid) return true;
-    const ends = trial?.trial_ends_at
-      ? new Date(trial.trial_ends_at).getTime()
+  function accessAllowed(profile: ProfileGateRow | null) {
+    if (!profile) return false;
+    const subId = profile.stripe_subscription_id?.trim();
+    if (subId) {
+      return stripeSubscriptionAllowsAccess(
+        subId,
+        profile.stripe_subscription_status
+      );
+    }
+    const ends = profile.trial_ends_at
+      ? new Date(profile.trial_ends_at).getTime()
       : null;
     if (ends == null) return true;
     return ends > Date.now();
@@ -117,6 +130,20 @@ export async function proxy(request: NextRequest) {
 
   const isDriver = profile?.role === "Driver";
 
+  if (
+    !demoBrowsing &&
+    profile &&
+    !isDriver &&
+    profile.org_id == null &&
+    path.startsWith("/dashboard")
+  ) {
+    const planCookie = request.cookies.get("nexus_signup_plan")?.value;
+    const plan = planCookie === "yearly" ? "yearly" : "monthly";
+    return NextResponse.redirect(
+      new URL(`/auth/complete-subscription?plan=${plan}`, request.url)
+    );
+  }
+
   if (!demoBrowsing && profile && isDriver && path.startsWith("/dashboard")) {
     return NextResponse.redirect(new URL("/driver/dashboard", request.url));
   }
@@ -125,6 +152,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  // /trial-expired must render for users without access (e.g. canceled subscription).
+  // Only bounce to dashboard when accessAllowed is true — avoids a redirect loop.
   if (user && path.startsWith("/trial-expired")) {
     if (demoBrowsing) return response;
     if (profile != null && accessAllowed(profile)) {
@@ -145,7 +174,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const stripeConfigured = Boolean(
-    process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_PRICE_ID?.trim()
+    process.env.STRIPE_SECRET_KEY?.trim() &&
+      (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY?.trim() ||
+        process.env.STRIPE_PRICE_ID?.trim() ||
+        process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_YEARLY?.trim())
   );
 
   if (

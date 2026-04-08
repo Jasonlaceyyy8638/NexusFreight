@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
   const { data: profile, error: pErr } = await svc
     .from("profiles")
-    .select("stripe_subscription_id")
+    .select("stripe_subscription_id, stripe_subscription_status")
     .eq("id", userId)
     .maybeSingle();
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   const { error: uErr } = await svc
     .from("profiles")
     .update({
-      stripe_subscription_id: null,
+      stripe_subscription_status: "canceled",
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);

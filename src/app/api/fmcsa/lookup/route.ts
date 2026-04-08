@@ -37,6 +37,12 @@ export async function POST(req: Request) {
   const result = await fetchCarrierData(number);
 
   if (!result.ok) {
+    console.error("[fmcsa/lookup] lookup failed", {
+      responseStatus: "error",
+      code: result.code,
+      error: result.error,
+      mcDigitLength: number.replace(/\D/g, "").length,
+    });
     if (result.code === "missing_key") {
       return NextResponse.json(result, { status: 503 });
     }
@@ -48,6 +54,14 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ ok: false, error: result.error, code: result.code });
   }
+
+  console.log("[fmcsa/lookup] ok", {
+    legalNamePreview:
+      typeof result.data.legal_name === "string"
+        ? result.data.legal_name.slice(0, 48)
+        : "",
+    dot: result.data.dot_number,
+  });
 
   if (svc && actorUserId) {
     const digits = number.replace(/\D/g, "");

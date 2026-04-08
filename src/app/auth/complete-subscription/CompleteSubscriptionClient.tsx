@@ -12,15 +12,24 @@ import { MarketingNav } from "@/components/landing/MarketingNav";
 export function CompleteSubscriptionClient() {
   const searchParams = useSearchParams();
   const canceled = searchParams.get("canceled") === "1";
+  const plan = searchParams.get("plan") === "yearly" ? "yearly" : "monthly";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const autoOnce = useRef(false);
+
+  useEffect(() => {
+    autoOnce.current = false;
+  }, [plan]);
 
   const startCheckout = useCallback(async () => {
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
       const body = (await res.json().catch(() => ({}))) as { error?: string; url?: string };
       if (!res.ok) {
         setError(
@@ -37,7 +46,7 @@ export function CompleteSubscriptionClient() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [plan]);
 
   useEffect(() => {
     if (canceled || autoOnce.current) return;

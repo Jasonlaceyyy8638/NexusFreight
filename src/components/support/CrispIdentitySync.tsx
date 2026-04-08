@@ -65,8 +65,8 @@ function pushIdentityToCrisp(input: {
   if (trial) {
     pairs.push(["trial_expiry", trial]);
   }
-  // Multi-key shape: ["set", "session:data", [[["k","v"], ...]]]
-  q.push(["set", "session:data", [pairs]]);
+  // Shape: ["set", "session:data", [["k","v"], ...]] — do not wrap `pairs` again or Crisp throws "Invalid data".
+  q.push(["set", "session:data", pairs]);
 }
 
 export function CrispIdentitySync() {

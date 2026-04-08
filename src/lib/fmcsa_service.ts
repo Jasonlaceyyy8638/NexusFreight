@@ -1,5 +1,6 @@
 /**
- * FMCSA QCMobile API — requires FMCSA_WEB_KEY or FMCSA_WEBKEY (server-side only).
+ * FMCSA QCMobile API — server-side key (first match wins):
+ * `FMCSA_API_KEY` | `FMCSA_WEB_KEY` | `FMCSA_WEBKEY`
  * @see https://mobile.fmcsa.dot.gov/QCDevsite/docs/qcApi
  */
 
@@ -47,19 +48,39 @@ export function normalizeMcDocket(input: string): string {
 
 function getWebKey(): string | null {
   const key =
-    process.env.FMCSA_WEB_KEY?.trim() || process.env.FMCSA_WEBKEY?.trim();
+    process.env.FMCSA_API_KEY?.trim() ||
+    process.env.FMCSA_WEB_KEY?.trim() ||
+    process.env.FMCSA_WEBKEY?.trim();
   return key && key.length > 0 ? key : null;
 }
 
+function scrubFmcsaUrlForLog(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.searchParams.has("webKey")) {
+      u.searchParams.set("webKey", "[REDACTED]");
+    }
+    return u.toString();
+  } catch {
+    return "[invalid-url]";
+  }
+}
+
 function mapRecord(r: Record<string, unknown>): FmcsaCompanyData {
-  const allow = r.allowToOperate === "Y";
-  const oos = r.outOfService === "Y";
+  const allowRaw = r.allowToOperate ?? r.allowedToOperate;
+  const allow = allowRaw === "Y" || allowRaw === "y";
+  const oos = r.outOfService === "Y" || r.outOfService === "y";
   const active = allow && !oos;
 
   const street = r.phyStreet != null ? String(r.phyStreet) : "";
   const city = r.phyCity != null ? String(r.phyCity) : "";
   const state = r.phyState != null ? String(r.phyState) : "";
-  const zip = r.phyZip != null ? String(r.phyZip) : "";
+  const zip =
+    r.phyZip != null
+      ? String(r.phyZip)
+      : r.phyZipcode != null
+        ? String(r.phyZipcode)
+        : "";
   const parts = [street, city, state, zip].filter(Boolean);
 
   const legalRaw =
@@ -94,21 +115,37 @@ function mapRecord(r: Record<string, unknown>): FmcsaCompanyData {
   };
 }
 
+/**
+ * QCMobile often wraps the carrier row in `{ content: [{ carrier: { ... } }] }`.
+ * Flat records (legalName / dotNumber on the root) are returned as-is.
+ */
+function unwrapCarrierRecord(
+  rec: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  if (!rec || typeof rec !== "object") return null;
+  const inner = rec.carrier;
+  if (inner && typeof inner === "object") {
+    return inner as Record<string, unknown>;
+  }
+  return rec;
+}
+
 function extractFirstCarrier(payload: unknown): Record<string, unknown> | null {
   if (payload == null) return null;
   if (Array.isArray(payload)) {
     const first = payload[0];
-    return first && typeof first === "object"
-      ? (first as Record<string, unknown>)
-      : null;
+    if (first && typeof first === "object") {
+      return unwrapCarrierRecord(first as Record<string, unknown>);
+    }
+    return null;
   }
   if (typeof payload === "object") {
     const o = payload as Record<string, unknown>;
     if (Array.isArray(o.content) && o.content[0] && typeof o.content[0] === "object") {
-      return o.content[0] as Record<string, unknown>;
+      return unwrapCarrierRecord(o.content[0] as Record<string, unknown>);
     }
     if (o.legalName != null || o.dotNumber != null || o.mcNumber != null) {
-      return o;
+      return unwrapCarrierRecord(o);
     }
     if (o.carrier && typeof o.carrier === "object") {
       return o.carrier as Record<string, unknown>;
@@ -133,7 +170,12 @@ async function fetchFmcsa(url: string): Promise<
     /* non-JSON */
   }
   if (!res.ok) {
-    return { ok: false, status: res.status, body: text.slice(0, 200) };
+    console.error("[FMCSA QCMobile]", {
+      responseStatus: res.status,
+      url: scrubFmcsaUrlForLog(url),
+      errorBody: text,
+    });
+    return { ok: false, status: res.status, body: text.slice(0, 500) };
   }
   return { ok: true, data };
 }
@@ -147,8 +189,7 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
   if (!key) {
     return {
       ok: false,
-      error:
-        "FMCSA_WEB_KEY (or FMCSA_WEBKEY) is not configured. Add it to your server environment.",
+      error: "Configuration Error: Missing FMCSA Key",
       code: "missing_key",
     };
   }
@@ -185,13 +226,14 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
       if (second.status === 401) {
         return {
           ok: false,
-          error: "FMCSA_WEB_KEY / FMCSA_WEBKEY is invalid.",
+          error:
+            "Invalid API key — check FMCSA_API_KEY / FMCSA_WEB_KEY (FMCSA QCMobile returned 401).",
           code: "unauthorized",
         };
       }
       return {
         ok: false,
-        error: `FMCSA API error (${second.status}).`,
+        error: `FMCSA server error (${second.status}): ${second.body || "no body"}`,
         code: "request_failed",
       };
     }
@@ -199,13 +241,14 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
   } else if (first.status === 401) {
     return {
       ok: false,
-      error: "FMCSA_WEB_KEY / FMCSA_WEBKEY is invalid.",
+      error:
+        "Invalid API key — check FMCSA_API_KEY / FMCSA_WEB_KEY (FMCSA QCMobile returned 401).",
       code: "unauthorized",
     };
   } else {
     return {
       ok: false,
-      error: `FMCSA API error (${first.status}).`,
+      error: `FMCSA server error (${first.status}): ${first.body || "no body"}`,
       code: "request_failed",
     };
   }
@@ -218,6 +261,10 @@ export async function fetchCompanyData(number: string): Promise<FmcsaFetchResult
   const data = mapRecord(row);
   if (!data.legal_name && !data.dot_number) {
     return { ok: false, error: "Incomplete carrier record.", code: "incomplete" };
+  }
+
+  if (!data.mc_number.trim() && docket) {
+    data.mc_number = docket;
   }
 
   return { ok: true, data };
