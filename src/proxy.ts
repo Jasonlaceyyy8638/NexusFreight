@@ -137,6 +137,9 @@ export async function proxy(request: NextRequest) {
     profile.org_id == null &&
     path.startsWith("/dashboard")
   ) {
+    if (profile.stripe_subscription_id?.trim()) {
+      return NextResponse.redirect(new URL("/auth/provisioning", request.url));
+    }
     const planCookie = request.cookies.get("nexus_signup_plan")?.value;
     const plan = planCookie === "yearly" ? "yearly" : "monthly";
     return NextResponse.redirect(

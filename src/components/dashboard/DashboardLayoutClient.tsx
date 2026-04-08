@@ -3,7 +3,10 @@
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { DashboardDataProvider } from "@/components/dashboard/DashboardDataProvider";
+import {
+  DashboardDataProvider,
+  useDashboardData,
+} from "@/components/dashboard/DashboardDataProvider";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import type { InteractiveDemoVariant } from "@/lib/demo_data";
 
@@ -28,6 +31,19 @@ function DemoQuerySync() {
   return null;
 }
 
+/** If org provisioning lags after Stripe, avoid a one-frame onboarding banner. */
+function StripeProvisioningRedirect() {
+  const router = useRouter();
+  const { onboardingRequired, hasStripeSubscription } = useDashboardData();
+
+  useEffect(() => {
+    if (!onboardingRequired || !hasStripeSubscription) return;
+    router.replace("/auth/provisioning");
+  }, [onboardingRequired, hasStripeSubscription, router]);
+
+  return null;
+}
+
 export function DashboardLayoutClient({
   children,
   demoSession = null,
@@ -42,6 +58,7 @@ export function DashboardLayoutClient({
 }) {
   return (
     <DashboardDataProvider demoSession={demoSession}>
+      <StripeProvisioningRedirect />
       <DemoQuerySync />
       <DashboardShell
         demoSession={demoSession}
