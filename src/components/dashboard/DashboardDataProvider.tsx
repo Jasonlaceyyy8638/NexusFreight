@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -216,6 +217,9 @@ export function DashboardDataProvider({
 
   const openDemoAccountGate = useCallback(() => setDemoGateOpen(true), []);
 
+  /** One try: link `pending_signups` after email confirm or missed signup attach. */
+  const pendingStripeRecoveryAttemptedRef = useRef(false);
+
   useEffect(() => {
     if (!supabase) {
       setAuthSessionResolved(true);
@@ -320,7 +324,7 @@ export function DashboardDataProvider({
 
     const profileSelect =
       "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id" as const;
-    const { data: profile, error: profileError } = authUser?.id
+    const { data: profileRow, error: profileError } = authUser?.id
       ? await supabase
           .from("profiles")
           .select(profileSelect)
@@ -330,6 +334,38 @@ export function DashboardDataProvider({
 
     if (profileError) {
       return;
+    }
+
+    let profile = profileRow;
+
+    if (
+      authUser?.id &&
+      profile &&
+      !profile.org_id?.trim() &&
+      !pendingStripeRecoveryAttemptedRef.current
+    ) {
+      pendingStripeRecoveryAttemptedRef.current = true;
+      const { data: sessWrap } = await supabase.auth.getSession();
+      const token = sessWrap.session?.access_token;
+      if (token) {
+        const res = await fetch("/api/stripe/attach-pending-signup", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const j = (await res.json().catch(() => ({}))) as {
+            recovered?: boolean;
+          };
+          if (j.recovered) {
+            const { data: again } = await supabase
+              .from("profiles")
+              .select(profileSelect)
+              .eq("id", authUser.id)
+              .maybeSingle();
+            if (again) profile = again;
+          }
+        }
+      }
     }
 
     if (!profile?.org_id?.trim()) {

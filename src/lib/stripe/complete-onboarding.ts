@@ -6,6 +6,51 @@ import {
 } from "@/lib/email/send-founding-member-welcome";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
 
+const PROFILE_RETRY_MS = 120;
+const PROFILE_RETRY_MAX = 12;
+
+/**
+ * `handle_new_user` runs after auth signup; a tiny race can make the profile row
+ * miss the first read from attach-checkout-session.
+ */
+async function loadProfileAfterSignup(
+  admin: NonNullable<ReturnType<typeof createServiceRoleSupabaseClient>>,
+  userId: string
+): Promise<
+  | {
+      ok: true;
+      profile: {
+        id: string;
+        org_id: string | null;
+        role: string | null;
+        full_name: string | null;
+        is_beta_user: boolean | null;
+        trial_type: string | null;
+        welcome_email_sent_at: string | null;
+      };
+    }
+  | { ok: false; error: string }
+> {
+  for (let i = 0; i < PROFILE_RETRY_MAX; i++) {
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select(
+        "id, org_id, role, full_name, is_beta_user, trial_type, welcome_email_sent_at"
+      )
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) {
+      return { ok: false, error: profileError.message };
+    }
+    if (profile) {
+      return { ok: true, profile };
+    }
+    await new Promise((r) => setTimeout(r, PROFILE_RETRY_MS));
+  }
+  return { ok: false, error: "Profile not found." };
+}
+
 /**
  * Create organization (if needed), attach Stripe subscription/customer, permissions,
  * and welcome email — for a known Supabase user after Checkout.
@@ -24,17 +69,11 @@ export async function provisionOrgForProfileFromStripeSession(
     return { ok: false, error: "Checkout session is not complete." };
   }
 
-  const { data: profile, error: profileError } = await admin
-    .from("profiles")
-    .select(
-      "id, org_id, role, full_name, is_beta_user, trial_type, welcome_email_sent_at"
-    )
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profileError || !profile) {
-    return { ok: false, error: "Profile not found." };
+  const loaded = await loadProfileAfterSignup(admin, userId);
+  if (!loaded.ok) {
+    return { ok: false, error: loaded.error };
   }
+  const profile = loaded.profile;
 
   const subRaw = session.subscription;
   const subId =
