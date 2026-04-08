@@ -16,6 +16,8 @@ export default async function DashboardLayout({
 
   let serverAuthUserId: string | null = null;
   let nexusControlSidebar = false;
+  /** Matches DB before client hydrates — avoids a false "missing org" banner when the row already has org_id. */
+  let serverOnboardingRequired = false;
   const supabase = await createServerSupabaseClient();
   if (supabase) {
     const {
@@ -25,6 +27,14 @@ export default async function DashboardLayout({
     nexusControlSidebar = isCorporateNexusControlSidebarUser(
       session?.user?.email
     );
+    if (serverAuthUserId) {
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("org_id")
+        .eq("id", serverAuthUserId)
+        .maybeSingle();
+      serverOnboardingRequired = !profileRow?.org_id?.trim();
+    }
   }
 
   /**
@@ -45,6 +55,7 @@ export default async function DashboardLayout({
         demoSession={demoSession}
         serverInteractiveDemoBanner={serverInteractiveDemoBanner}
         showNexusControlNav={nexusControlSidebar}
+        serverOnboardingRequired={serverOnboardingRequired}
       >
         {children}
       </DashboardLayoutClient>

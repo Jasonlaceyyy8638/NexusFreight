@@ -146,9 +146,12 @@ const DashboardDataContext = createContext<DashboardDataContextValue | null>(
 export function DashboardDataProvider({
   children,
   demoSession,
+  serverOnboardingRequired = false,
 }: {
   children: ReactNode;
   demoSession?: InteractiveDemoVariant | null;
+  /** Server read of profiles.org_id — avoids showing the empty-workspace banner on a laggy client fetch. */
+  serverOnboardingRequired?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -204,7 +207,12 @@ export function DashboardDataProvider({
   const [isBetaUser, setIsBetaUser] = useState(false);
   const [hasStripeSubscription, setHasStripeSubscription] = useState(false);
   const [demoGateOpen, setDemoGateOpen] = useState(false);
-  const [onboardingRequired, setOnboardingRequired] = useState(false);
+  const [onboardingRequired, setOnboardingRequired] = useState(() => {
+    if (demoSession === "dispatcher" || demoSession === "carrier") {
+      return false;
+    }
+    return Boolean(serverOnboardingRequired);
+  });
 
   const openDemoAccountGate = useCallback(() => setDemoGateOpen(true), []);
 
@@ -312,7 +320,7 @@ export function DashboardDataProvider({
 
     const profileSelect =
       "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id" as const;
-    const { data: profile } = authUser?.id
+    const { data: profile, error: profileError } = authUser?.id
       ? await supabase
           .from("profiles")
           .select(profileSelect)
@@ -320,7 +328,11 @@ export function DashboardDataProvider({
           .maybeSingle()
       : await supabase.from("profiles").select(profileSelect).maybeSingle();
 
-    if (!profile?.org_id) {
+    if (profileError) {
+      return;
+    }
+
+    if (!profile?.org_id?.trim()) {
       if (authUser) {
         setOnboardingRequired(true);
         setUsingDemo(false);
