@@ -99,7 +99,20 @@ export function SignupClient() {
               router.refresh();
               return;
             }
-            setSessionError(attached.error);
+            let errMsg = attached.error;
+            try {
+              const ctx = await fetchStripeSignupSessionContext(
+                stripeSessionId
+              );
+              const signedIn = auth.user?.email?.trim().toLowerCase() ?? "";
+              const billing = ctx.email.trim().toLowerCase();
+              if (signedIn && billing && signedIn !== billing) {
+                errMsg = `You're signed in as ${auth.user.email}. This checkout was completed for ${ctx.email}. Sign out below, then open this same link again—you can create the account for ${ctx.email} or sign in with that address.`;
+              }
+            } catch {
+              /* keep errMsg */
+            }
+            setSessionError(errMsg);
             setStripeReady(false);
             return;
           }
@@ -390,10 +403,24 @@ export function SignupClient() {
       <div className="flex min-h-[100dvh] min-h-screen h-full flex-col bg-[#1A1C1E] text-white">
         <MarketingNav />
         <main className="mx-auto max-w-lg px-6 py-16">
-          <p className="text-sm text-red-400">{sessionError ?? "Invalid session."}</p>
+          <p className="text-sm leading-relaxed text-red-400">
+            {sessionError ?? "Invalid session."}
+          </p>
+          {supabase ? (
+            <button
+              type="button"
+              className="mt-4 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/10"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.reload();
+              }}
+            >
+              Sign out and try again
+            </button>
+          ) : null}
           <Link
             href="/#pricing"
-            className="mt-4 inline-block text-[#3395ff] hover:underline"
+            className="mt-4 block text-[#3395ff] hover:underline"
           >
             Back to pricing
           </Link>
