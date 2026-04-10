@@ -1,8 +1,16 @@
 "use client";
 
+import { AdminResourcesPanel } from "@/components/admin/AdminResourcesPanel";
 import { AnnouncementsAnalyticsDashboard } from "@/components/admin/AnnouncementsAnalyticsDashboard";
 import type { AnnouncementsAnalyticsDashboardData } from "@/types/announcements-analytics-dashboard";
-import { BarChart3, CheckCircle2, Loader2, Megaphone, Send } from "lucide-react";
+import {
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  Loader2,
+  Megaphone,
+  Send,
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -24,7 +32,10 @@ type PerformanceOpener = {
   full_name: string | null;
 };
 
+type AdminTab = "announcements" | "resources";
+
 export function AnnouncementsClient() {
+  const [adminTab, setAdminTab] = useState<AdminTab>("announcements");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [confirmPhrase, setConfirmPhrase] = useState("");
@@ -306,6 +317,47 @@ export function AnnouncementsClient() {
         </h1>
       </div>
 
+      <div
+        className="mt-6 flex flex-wrap gap-2"
+        role="tablist"
+        aria-label="Announcements admin sections"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={adminTab === "announcements"}
+          onClick={() => setAdminTab("announcements")}
+          className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors ${
+            adminTab === "announcements"
+              ? "border-sky-500/50 bg-sky-950/40 text-white"
+              : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-600 hover:text-slate-200"
+          }`}
+        >
+          <Megaphone className="h-4 w-4" aria-hidden />
+          Announcements
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={adminTab === "resources"}
+          onClick={() => setAdminTab("resources")}
+          className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors ${
+            adminTab === "resources"
+              ? "border-emerald-500/50 bg-emerald-950/30 text-white"
+              : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-600 hover:text-slate-200"
+          }`}
+        >
+          <BookOpen className="h-4 w-4" aria-hidden />
+          Create resource
+        </button>
+      </div>
+
+      {adminTab === "resources" ? (
+        <div className="mt-8">
+          <AdminResourcesPanel />
+        </div>
+      ) : (
+        <>
       <div className="mt-8">
         <AnnouncementsAnalyticsDashboard
           data={analyticsData}
@@ -623,6 +675,8 @@ export function AnnouncementsClient() {
           </div>
         </div>
       </div>
+        </>
+      )}
 
       <p className="mt-12 text-sm">
         <Link

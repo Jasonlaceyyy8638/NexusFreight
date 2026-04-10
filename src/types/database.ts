@@ -250,3 +250,17 @@ export type AnnouncementReminderLog = {
   user_id: string;
   sent_at: string;
 };
+
+/** Public marketing guide for /resources (Markdown body; drafts omit published_at). */
+export type Resource = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  published_at: string | null;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+};

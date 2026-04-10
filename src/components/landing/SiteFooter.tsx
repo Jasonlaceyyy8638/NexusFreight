@@ -9,6 +9,7 @@ const product = [
 ];
 
 const resources = [
+  { label: "Guides & articles", href: "/resources" },
   { label: "Product Tour", href: "/product-tour" },
   { label: "ELD Integrations", href: "/resources/eld-integrations" },
   { label: "Live Map", href: "/resources/live-map" },
