@@ -140,7 +140,7 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
               className="rounded-md border border-[#007bff]/40 bg-[#007bff]/10 px-3 py-1.5 font-semibold text-slate-100 transition-colors hover:border-[#007bff]/60 hover:bg-[#007bff]/20"
               onClick={scrollToPricingSection}
             >
-              Join the Beta
+              Start free trial
             </Link>
             <Link
               href="/auth/login"
@@ -228,10 +228,17 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
               >
                 Help Center
               </Link>
-              <div className="mt-6 px-2">
+              <div className="mt-6 flex flex-col gap-3 px-2">
+                <Link
+                  href="/#pricing"
+                  className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#007bff] px-4 text-base font-bold text-white shadow-lg shadow-[#007bff]/30 transition-colors hover:bg-[#0066dd]"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Start free trial
+                </Link>
                 <Link
                   href="/auth/login"
-                  className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#3B82F6] px-4 text-base font-bold text-white shadow-lg shadow-[#3B82F6]/25 transition-colors hover:bg-[#2563EB]"
+                  className="flex min-h-[52px] w-full items-center justify-center rounded-xl border border-white/20 bg-transparent px-4 text-base font-semibold text-white transition-colors hover:bg-white/10"
                   onClick={() => setMobileOpen(false)}
                 >
                   Sign in

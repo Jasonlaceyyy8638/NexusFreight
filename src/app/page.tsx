@@ -18,10 +18,12 @@ import { SecurityDataTrustSection } from "@/components/landing/SecurityDataTrust
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import LandingPricingCards from "@/components/landing/LandingPricingCards";
 import { LandingBridgeSection } from "@/components/landing/LandingBridgeSection";
+import { HomeJsonLd } from "@/components/seo/HomeJsonLd";
 
 export default function Home() {
   return (
     <div className="relative flex min-h-screen flex-col bg-[#0D0E10] text-white">
+      <HomeJsonLd />
       <MarketingPageBackdrop />
 
       <div className="relative z-10 flex min-h-screen flex-col">
@@ -61,20 +63,19 @@ export default function Home() {
                     id="hero-heading"
                     className="mt-5 text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.45)] sm:text-5xl md:text-6xl lg:text-[3.25rem]"
                   >
-                    The Unified Operating System for Modern Logistics.
+                    Built for dispatchers and carrier fleets.
                   </h1>
                   <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-relaxed text-slate-300 sm:text-lg">
-                    Real-time ELD integration, automated driver dispatch, and instant
-                    carrier settlements. Built for the office, engineered for the road.
+                    Real-time ELD integration, driver dispatch, and carrier settlements
+                    in one dashboard—office and road in sync. For dispatch teams and
+                    fleet operators moving freight every day.
                   </p>
-                  <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:mt-12 sm:flex-row sm:gap-4">
+                  <p className="mx-auto mt-4 max-w-xl text-sm text-slate-400">
+                    Pick a plan on pricing, check out with Stripe, then create your
+                    account—same day access. Or explore the sandbox with sample data.
+                  </p>
+                  <div className="mt-10 flex w-full max-w-md flex-col items-center justify-center sm:mt-12 sm:max-w-none">
                     <HeroPlatformCTA />
-                    <Link
-                      href="mailto:info@nexusfreight.tech?subject=Demo%20Request"
-                      className="inline-flex min-w-[168px] items-center justify-center rounded-md border border-white/25 bg-white/5 px-8 py-3.5 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/10"
-                    >
-                      Request Demo
-                    </Link>
                   </div>
                 </div>
 

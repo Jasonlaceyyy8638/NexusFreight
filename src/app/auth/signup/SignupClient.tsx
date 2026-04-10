@@ -354,7 +354,7 @@ export function SignupClient() {
       const accessToken = signUpResult.data.session?.access_token;
       if (!accessToken) {
         setDoneMessage(
-          "Account created. Confirm your email, then sign in with the same address you used in Stripe — open this page again with your checkout link to finish setup."
+          "Account created, but we couldn’t start a session automatically. Sign in with the same email you used at checkout, then open this page again using the return link from your Stripe receipt (or your bookmarked signup URL)."
         );
         return;
       }
@@ -439,7 +439,8 @@ export function SignupClient() {
         <p className="mt-2 text-sm text-slate-400">
           Your trial is active in Stripe. Use the same email you entered at
           checkout. Carriers verify MC/DOT with FMCSA before we create your
-          workspace.
+          workspace. No separate email confirmation—after you submit, you
+          continue into the app when your session is ready.
         </p>
 
         <form

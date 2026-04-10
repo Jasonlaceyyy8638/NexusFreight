@@ -77,16 +77,28 @@ export default function ProductTourPage() {
             </button>
           </div>
 
-          <p className="mx-auto mt-14 max-w-lg text-center text-xs text-slate-500">
-            Demo mode uses read-only sample data. Saving loads or changing roster
-            requires a free account.{" "}
+          <div className="mx-auto mt-16 w-full max-w-2xl rounded-2xl border border-[#007bff]/30 bg-gradient-to-b from-[#16181A] to-[#121416] px-6 py-8 text-center shadow-[0_24px_80px_-40px_rgba(0,123,255,0.4)] sm:px-10">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#3395ff]">
+              Ready for your own data?
+            </p>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+              Start your free trial and create your workspace
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-400">
+              Choose a plan, complete checkout, then finish signup—your account is
+              linked to Stripe automatically.
+            </p>
             <Link
-              href="/auth/signup"
-              className="text-slate-400 underline decoration-white/15 underline-offset-2 transition-colors hover:text-blue-500"
+              href="/#pricing"
+              className="mt-6 inline-flex min-h-[48px] min-w-[200px] items-center justify-center rounded-md bg-[#007bff] px-8 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(0,123,255,0.35)] transition-[opacity,box-shadow] hover:opacity-95 hover:shadow-[0_0_32px_rgba(0,123,255,0.5)]"
             >
-              Sign up to go live
+              View pricing &amp; start trial
             </Link>
-            .
+          </div>
+
+          <p className="mx-auto mt-10 max-w-lg text-center text-xs text-slate-500">
+            Demo mode uses read-only sample data. Saving loads or changing roster
+            requires an account created after checkout.
           </p>
         </main>
         <SiteFooter />

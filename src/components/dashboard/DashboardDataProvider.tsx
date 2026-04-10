@@ -229,7 +229,7 @@ export function DashboardDataProvider({
 
   const openDemoAccountGate = useCallback(() => setDemoGateOpen(true), []);
 
-  /** One try: link `pending_signups` after email confirm or missed signup attach. */
+  /** One try: link `pending_signups` after signup or missed attach. */
   const pendingStripeRecoveryAttemptedRef = useRef(false);
 
   useEffect(() => {
