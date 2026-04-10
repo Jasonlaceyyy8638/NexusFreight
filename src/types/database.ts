@@ -41,6 +41,10 @@ export type Profile = {
   /** Synced from Stripe webhooks (`subscription.status`). */
   stripe_subscription_status?: string | null;
   stripe_customer_id?: string | null;
+  /** Copied from auth for ops / announcements; may be null. */
+  auth_email?: string | null;
+  /** When true, excluded from bulk product announcement emails. */
+  announcement_emails_opt_out?: boolean | null;
 };
 
 export type ServiceFeeType = "percent" | "flat";
@@ -207,4 +211,42 @@ export type SupportTicket = {
   priority: SupportTicketPriority;
   screenshot_url: string | null;
   created_at: string;
+};
+
+/** Bulk product announcement send audit row. */
+export type ProductUpdateSendLog = {
+  id: string;
+  payload_hash: string;
+  title: string;
+  body_excerpt: string;
+  /** Full body from composer; used for reminder summaries. */
+  body_text?: string | null;
+  recipient_count: number;
+  sent_at: string;
+};
+
+/** Open / click timestamps for one profile and one send. */
+export type AnnouncementStat = {
+  id: string;
+  announcement_id: string;
+  user_id: string;
+  opened_at: string | null;
+  clicked_at: string | null;
+};
+
+/** Successful delivery row for a bulk announcement (reminder targeting). */
+export type AnnouncementSendRecipient = {
+  id: string;
+  announcement_id: string;
+  user_id: string;
+  email: string;
+  sent_at: string;
+};
+
+/** Automated unread reminder (unique per announcement + profile). */
+export type AnnouncementReminderLog = {
+  id: string;
+  announcement_id: string;
+  user_id: string;
+  sent_at: string;
 };

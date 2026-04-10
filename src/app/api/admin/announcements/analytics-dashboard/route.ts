@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { collectAnnouncementRecipients } from "@/lib/admin/announcement-recipients";
+import { fetchAnnouncementsAnalyticsDashboard } from "@/lib/admin/announcement-analytics-dashboard";
 import { getAdminUserOrNull } from "@/lib/admin/require-admin";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-/** @deprecated Use GET /api/admin/announcements/recipients for count + email list. */
 export async function GET() {
   const admin = await getAdminUserOrNull();
   if (!admin) {
@@ -21,10 +20,10 @@ export async function GET() {
   }
 
   try {
-    const rows = await collectAnnouncementRecipients(svc);
-    return NextResponse.json({ count: rows.length });
+    const data = await fetchAnnouncementsAnalyticsDashboard(svc);
+    return NextResponse.json(data);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Could not list users.";
+    const msg = e instanceof Error ? e.message : "Analytics failed.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

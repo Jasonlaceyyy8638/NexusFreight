@@ -9,7 +9,6 @@ const corsHeaders: Record<string, string> = {
 type Body = {
   title?: string;
   body?: string;
-  /** Must match ANNOUNCEMENT_SEND_CONFIRM_PHRASE (default SEND). */
   confirmPhrase?: string;
 };
 
@@ -19,6 +18,38 @@ async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) {
+    bin += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** Must match src/lib/admin/announcement-unsubscribe.ts (Node crypto). */
+async function signAnnouncementUnsubscribe(
+  profileId: string,
+  secret: string
+): Promise<string> {
+  const exp = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
+  const payload = JSON.stringify({ p: profileId, exp });
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sigBuf = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(payload)
+  );
+  const sig = base64UrlEncode(new Uint8Array(sigBuf));
+  const b64 = base64UrlEncode(new TextEncoder().encode(payload));
+  return `${b64}.${sig}`;
 }
 
 function escapeHtml(s: string): string {
@@ -46,8 +77,12 @@ function buildEmailHtml(params: {
   bodyHtml: string;
   dashboardUrl: string;
   logoUrl: string;
+  unsubscribeUrl: string;
+  postalAddress: string;
 }): string {
   const title = escapeHtml(params.title);
+  const postal = escapeHtml(params.postalAddress);
+  const unsub = `<a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#64748b;text-decoration:underline;">Unsubscribe</a> from product update emails`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /></head>
@@ -82,7 +117,9 @@ function buildEmailHtml(params: {
           </tr>
           <tr>
             <td style="padding:16px 32px 24px 32px;border-top:1px solid #2a2f36;">
-              <p style="margin:0;font-size:12px;color:#64748b;">NexusFreight Logistics Infrastructure</p>
+              <p style="margin:0;font-size:12px;line-height:1.55;color:#64748b;">${postal}</p>
+              <p style="margin:12px 0 0;font-size:11px;line-height:1.5;color:#94a3b8;">${unsub}</p>
+              <p style="margin:16px 0 0;font-size:12px;color:#64748b;">NexusFreight Logistics Infrastructure</p>
               <p style="margin:4px 0 0;font-size:11px;letter-spacing:0.08em;color:#475569;">Digital. Direct. Driven.</p>
             </td>
           </tr>
@@ -115,6 +152,11 @@ Deno.serve(async (req) => {
   const logoUrl =
     Deno.env.get("PUBLIC_LOGO_URL")?.trim() ||
     `${siteUrl.replace(/\/$/, "")}/nexusfreight-logo-v2.svg`;
+  const postalAddress =
+    Deno.env.get("NEXUSFREIGHT_POSTAL_ADDRESS")?.trim() ||
+    "NexusFreight · Digital logistics platform · https://nexusfreight.tech";
+  const unsubSecret =
+    Deno.env.get("ANNOUNCEMENT_UNSUBSCRIBE_SECRET")?.trim() || serviceKey || "";
 
   if (!supabaseUrl || !serviceKey) {
     return new Response(
@@ -204,63 +246,108 @@ Deno.serve(async (req) => {
     );
   }
 
-  const emails = new Set<string>();
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  let page = 1;
-  const perPage = 1000;
-  for (;;) {
-    const { data, error: listErr } = await supabase.auth.admin.listUsers({
-      page,
-      perPage,
-    });
-    if (listErr) {
-      return new Response(JSON.stringify({ error: listErr.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+  async function authEmailByUserId(): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    let page = 1;
+    const perPage = 1000;
+    for (;;) {
+      const { data, error } = await supabase.auth.admin.listUsers({
+        page,
+        perPage,
       });
-    }
-    for (const u of data.users) {
-      const em = u.email?.trim().toLowerCase();
-      if (!em || !emailRe.test(em)) continue;
-      const bannedUntil = u.banned_until;
-      if (
-        bannedUntil &&
-        !Number.isNaN(new Date(bannedUntil).getTime()) &&
-        new Date(bannedUntil) > new Date()
-      ) {
-        continue;
+      if (error) throw new Error(error.message);
+      for (const u of data.users) {
+        const em = u.email?.trim().toLowerCase();
+        if (!em || !emailRe.test(em)) continue;
+        const bannedUntil = u.banned_until;
+        if (
+          bannedUntil &&
+          !Number.isNaN(new Date(bannedUntil).getTime()) &&
+          new Date(bannedUntil) > new Date()
+        ) {
+          continue;
+        }
+        map.set(u.id, em);
       }
-      emails.add(em);
+      if (data.users.length < perPage) break;
+      page += 1;
     }
-    if (data.users.length < perPage) break;
-    page += 1;
+    return map;
   }
 
-  const list = [...emails];
-  if (list.length === 0) {
+  const [authEmails, profileResult] = await Promise.all([
+    authEmailByUserId(),
+    supabase.from("profiles").select("id, auth_email, announcement_emails_opt_out"),
+  ]);
+
+  const { data: profileRows, error: qErr } = profileResult;
+
+  if (qErr || !profileRows) {
+    return new Response(JSON.stringify({ error: qErr?.message ?? "Query failed." }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const byEmail = new Map<
+    string,
+    { profileId: string; email: string }
+  >();
+
+  for (const r of profileRows as Array<{
+    id: string;
+    auth_email: string | null;
+    announcement_emails_opt_out: boolean | null;
+  }>) {
+    if (r.announcement_emails_opt_out === true) continue;
+    const fromProfile = r.auth_email?.trim().toLowerCase();
+    const fromAuth = authEmails.get(r.id);
+    const em =
+      fromProfile && emailRe.test(fromProfile)
+        ? fromProfile
+        : fromAuth && emailRe.test(fromAuth)
+          ? fromAuth
+          : "";
+    if (!em) continue;
+    if (!byEmail.has(em)) {
+      byEmail.set(em, { profileId: r.id, email: em });
+    }
+  }
+
+  const recipients = [...byEmail.values()];
+  if (recipients.length === 0) {
     return new Response(
       JSON.stringify({
         error:
-          "No recipient emails found. No Auth users with an email address.",
+          "No recipient emails found. Users need a valid Auth email (or profiles.auth_email) and must not have opted out.",
       }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
-  const dashboardUrl = `${siteUrl.replace(/\/$/, "")}/dashboard`;
+  const base = siteUrl.replace(/\/$/, "");
+  const dashboardUrl = `${base}/dashboard`;
   const bodyHtml = bodyToHtmlParagraphs(body);
-  const html = buildEmailHtml({
-    title,
-    bodyHtml,
-    dashboardUrl,
-    logoUrl,
-  });
   const emailSubject = `NexusFreight — ${title}`;
 
   let sent = 0;
   const errors: string[] = [];
 
-  for (const to of list) {
+  for (const { profileId, email } of recipients) {
+    const tok = await signAnnouncementUnsubscribe(profileId, unsubSecret);
+    const unsubscribeUrl = `${base}/api/unsubscribe/announcements?t=${encodeURIComponent(tok)}`;
+    const html = buildEmailHtml({
+      title,
+      bodyHtml,
+      dashboardUrl,
+      logoUrl,
+      unsubscribeUrl,
+      postalAddress,
+    });
+    const text = `${title}\n\n${body}\n\n${dashboardUrl}\n\n${postalAddress}\n\nUnsubscribe: ${unsubscribeUrl}\n`;
+
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -269,15 +356,15 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: "NexusFreight <info@nexusfreight.tech>",
-        to: [to],
+        to: [email],
         subject: emailSubject,
         html,
-        text: `${title}\n\n${body}\n\n${dashboardUrl}\n`,
+        text,
       }),
     });
     if (!res.ok) {
       const errText = await res.text();
-      errors.push(`${to}: ${errText.slice(0, 200)}`);
+      errors.push(`${email}: ${errText.slice(0, 200)}`);
       continue;
     }
     sent += 1;
@@ -295,14 +382,13 @@ Deno.serve(async (req) => {
     }
   }
 
-  const status =
-    sent === 0 && list.length > 0 ? 502 : 200;
+  const status = sent === 0 && recipients.length > 0 ? 502 : 200;
 
   return new Response(
     JSON.stringify({
       ok: sent > 0,
       recipient_count: sent,
-      attempted: list.length,
+      attempted: recipients.length,
       errors: errors.length ? errors.slice(0, 20) : undefined,
     }),
     { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }

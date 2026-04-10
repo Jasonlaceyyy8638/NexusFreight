@@ -5,7 +5,9 @@ import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-/** @deprecated Use GET /api/admin/announcements/recipients for count + email list. */
+/**
+ * List emails that will receive bulk announcements (profiles.auth_email, not opted out).
+ */
 export async function GET() {
   const admin = await getAdminUserOrNull();
   if (!admin) {
@@ -22,9 +24,10 @@ export async function GET() {
 
   try {
     const rows = await collectAnnouncementRecipients(svc);
-    return NextResponse.json({ count: rows.length });
+    const emails = rows.map((r) => r.email);
+    return NextResponse.json({ count: emails.length, emails });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Could not list users.";
+    const msg = e instanceof Error ? e.message : "Could not load recipients.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
