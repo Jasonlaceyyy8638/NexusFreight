@@ -310,11 +310,17 @@ export function AnnouncementsClient() {
       <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
         Internal
       </p>
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-2 flex flex-wrap items-center gap-3">
         <Megaphone className="h-8 w-8 text-sky-400" aria-hidden />
         <h1 className="text-2xl font-semibold tracking-tight text-white">
           Product announcements
         </h1>
+        <Link
+          href="/admin/dashboard"
+          className="ml-auto text-sm font-semibold text-sky-400 hover:underline sm:ml-0"
+        >
+          Command Center →
+        </Link>
       </div>
 
       <div

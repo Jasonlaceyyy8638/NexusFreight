@@ -222,7 +222,13 @@ export function NexusControlClient() {
               Organization oversight, vetting signals, and billing actions
               (logged).
             </p>
-            <p className="mt-3">
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+              <Link
+                href="/admin/dashboard"
+                className="text-sm font-semibold text-sky-400 hover:text-sky-300 hover:underline"
+              >
+                Command Center (analytics) →
+              </Link>
               <Link
                 href="/admin/announcements"
                 className="text-sm font-semibold text-sky-400 hover:text-sky-300 hover:underline"

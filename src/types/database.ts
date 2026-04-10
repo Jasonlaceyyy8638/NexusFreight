@@ -263,4 +263,6 @@ export type Resource = {
   image_url: string | null;
   created_at: string;
   updated_at: string;
+  view_count?: number;
+  cta_click_count?: number;
 };

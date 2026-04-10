@@ -1,7 +1,7 @@
 "use client";
 
 import type { Resource } from "@/types/database";
-import { BookOpen, Loader2, Plus } from "lucide-react";
+import { BookOpen, Eye, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { slugifyTitle } from "@/lib/resources/slug";
@@ -58,6 +58,14 @@ export function AdminResourcesPanel() {
   }, [load]);
 
   const suggestedSlug = useMemo(() => slugifyTitle(title), [title]);
+
+  const performanceSorted = useMemo(() => {
+    return [...list].sort((a, b) => {
+      const tb = (b.view_count ?? 0) + (b.cta_click_count ?? 0);
+      const ta = (a.view_count ?? 0) + (a.cta_click_count ?? 0);
+      return tb - ta;
+    });
+  }, [list]);
 
   useEffect(() => {
     if (!slugTouched && !editingId && title.trim()) {
@@ -183,6 +191,81 @@ export function AdminResourcesPanel() {
         empty for a draft (not public). Body uses Markdown (headings, lists, links,
         code fences).
       </p>
+
+      <div className="rounded-lg border border-slate-700 bg-slate-900/40 px-4 py-5 sm:px-5">
+        <div className="flex items-center gap-2">
+          <Eye className="h-5 w-5 text-sky-400" aria-hidden />
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">
+            Content performance
+          </h3>
+        </div>
+        <p className="mt-2 max-w-2xl text-xs text-slate-500">
+          Views and beta CTA taps from live article traffic (after migration{" "}
+          <code className="text-slate-400">00058</code>). Sort by total engagement
+          to spot what to double down on.
+        </p>
+        {loading ? (
+          <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading…
+          </div>
+        ) : performanceSorted.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No resources yet.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-md border border-slate-800">
+            <table className="w-full min-w-[520px] text-left text-xs text-slate-300 sm:text-sm">
+              <thead className="border-b border-slate-800 bg-slate-950/80 text-[10px] uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Title</th>
+                  <th className="px-3 py-2 font-semibold">Views</th>
+                  <th className="px-3 py-2 font-semibold">CTA</th>
+                  <th className="px-3 py-2 font-semibold">Total</th>
+                  <th className="px-3 py-2 font-semibold"> </th>
+                </tr>
+              </thead>
+              <tbody>
+                {performanceSorted.map((r) => {
+                  const v = r.view_count ?? 0;
+                  const c = r.cta_click_count ?? 0;
+                  return (
+                    <tr
+                      key={`perf-${r.id}`}
+                      className="border-b border-slate-800/80 last:border-0"
+                    >
+                      <td className="px-3 py-2 font-medium text-white">
+                        {r.title}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-slate-400">
+                        {v.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-slate-400">
+                        {c.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums font-semibold text-sky-200/90">
+                        {(v + c).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {r.published_at ? (
+                          <Link
+                            href={`/resources/${r.slug}`}
+                            className="text-sky-400 hover:underline"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open
+                          </Link>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/50">
         {loading ? (

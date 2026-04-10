@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ResourceMarkdown } from "@/components/resources/ResourceMarkdown";
 import { ResourceSidebarCta } from "@/components/resources/ResourceSidebarCta";
+import { ResourceViewBeacon } from "@/components/resources/ResourceViewBeacon";
 import { getPublishedResourceBySlug } from "@/lib/resources/public-queries";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export default async function ResourceArticlePage({ params }: PageProps) {
 
   return (
     <article className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 pt-6 sm:pb-24 sm:pt-8">
+      <ResourceViewBeacon slug={resource.slug} />
       <nav className="text-sm text-slate-500">
         <Link
           href="/resources"
@@ -111,7 +113,7 @@ export default async function ResourceArticlePage({ params }: PageProps) {
         </div>
 
         <div className="mt-12 lg:mt-4 lg:sticky lg:top-28">
-          <ResourceSidebarCta />
+          <ResourceSidebarCta resourceSlug={resource.slug} />
         </div>
       </div>
     </article>
