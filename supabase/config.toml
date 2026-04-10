@@ -1,5 +1,9 @@
 # Supabase local / deploy config. Link with `supabase link`.
 # Edge Functions: deploy with `supabase functions deploy send-product-update`
+#   and `supabase functions deploy discord-notifier`
 
 [functions.send-product-update]
+verify_jwt = false
+
+[functions.discord-notifier]
 verify_jwt = false
