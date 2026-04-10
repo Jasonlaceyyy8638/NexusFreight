@@ -34,6 +34,11 @@ type NavItem = {
 
 const nav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  {
+    href: "/dashboard/broker-packet",
+    label: "Broker Setup Packet",
+    icon: Shield,
+  },
   { href: "/dashboard/drivers", label: "Drivers", icon: UserCircle2 },
   { href: "/dashboard/map", label: "Live Map", icon: Map },
   { href: "/dashboard/loads", label: "Loads", icon: ClipboardList },

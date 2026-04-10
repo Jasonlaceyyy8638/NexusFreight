@@ -222,6 +222,14 @@ export function NexusControlClient() {
               Organization oversight, vetting signals, and billing actions
               (logged).
             </p>
+            <p className="mt-3">
+              <Link
+                href="/admin/announcements"
+                className="text-sm font-semibold text-sky-400 hover:text-sky-300 hover:underline"
+              >
+                Product announcements →
+              </Link>
+            </p>
           </div>
           <div className="flex max-w-md shrink-0 flex-col gap-2 sm:items-end">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
-import { FeatureCardsGrid } from "@/components/landing/FeatureCardsGrid";
+import { BrokerSetupEngineSection } from "@/components/landing/BrokerSetupEngineSection";
+import { PlatformCapabilitiesSection } from "@/components/landing/FeatureCardsGrid";
 import { HeroPlatformCTA } from "@/components/landing/HeroPlatformCTA";
 import { HeroProductPreview } from "@/components/landing/HeroProductPreview";
 import { ImpactStatsBar } from "@/components/landing/ImpactStatsBar";
@@ -92,36 +93,9 @@ export default function Home() {
 
           <LandingPricingCards />
 
-          <section
-            id="features"
-            className="border-t border-white/[0.06] px-6 py-20 font-[family-name:var(--font-inter)] sm:py-28"
-            aria-labelledby="features-heading"
-          >
-            <div className="mx-auto max-w-6xl text-center">
-              <h2
-                id="features-heading"
-                className="text-3xl font-semibold tracking-tight text-white sm:text-4xl"
-              >
-                Built for serious operations
-              </h2>
-              <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-400">
-                Three operational pillars—clear hierarchy, Inter typography,
-                and proof in the product.
-              </p>
-            </div>
-            <div className="mx-auto mt-14 max-w-6xl sm:mt-16">
-              <FeatureCardsGrid />
-            </div>
-            <p className="mx-auto mt-12 max-w-xl text-center text-sm text-slate-500">
-              Need fleet visibility?{" "}
-              <Link
-                href="/resources/live-map"
-                className="font-medium text-slate-300 underline decoration-white/15 underline-offset-4 transition-colors hover:text-[#3B82F6] hover:decoration-[#3B82F6]/40"
-              >
-                Explore the Live Map
-              </Link>
-            </p>
-          </section>
+          <BrokerSetupEngineSection />
+
+          <PlatformCapabilitiesSection />
 
           <SecurityDataTrustSection />
 

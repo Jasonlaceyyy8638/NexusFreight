@@ -68,3 +68,29 @@ export function FeatureCardsGrid() {
     </div>
   );
 }
+
+/** Command Center, Dispatch, Settlements — pairs with BrokerSetupEngineSection on home. */
+export function PlatformCapabilitiesSection() {
+  return (
+    <section
+      className="border-t border-white/[0.06] px-6 pb-20 pt-14 font-[family-name:var(--font-inter)] sm:pb-28 sm:pt-16"
+      aria-labelledby="platform-capabilities-heading"
+    >
+      <div className="mx-auto max-w-6xl text-center">
+        <h2
+          id="platform-capabilities-heading"
+          className="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+        >
+          Core platform capabilities
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+          Command, dispatch, and settlements—the rest of your agency workflow in one
+          workspace.
+        </p>
+      </div>
+      <div className="mt-10 sm:mt-12">
+        <FeatureCardsGrid />
+      </div>
+    </section>
+  );
+}

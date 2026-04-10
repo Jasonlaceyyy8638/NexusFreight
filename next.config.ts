@@ -15,6 +15,8 @@ if (stripeMonthly) nextEnv.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY = stripeMonthly;
 if (stripeYearly) nextEnv.NEXT_PUBLIC_STRIPE_PRICE_ID_YEARLY = stripeYearly;
 
 const nextConfig: NextConfig = {
+  /** Avoid bundling pdf-parse (reads test fixtures at build time when webpacked). */
+  serverExternalPackages: ["pdf-parse"],
   // Browser code only sees NEXT_PUBLIC_*; map non-prefixed names into it at build/start.
   ...(Object.keys(nextEnv).length > 0 ? { env: nextEnv } : {}),
   async redirects() {

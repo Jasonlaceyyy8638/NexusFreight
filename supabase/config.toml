@@ -1,0 +1,5 @@
+# Supabase local / deploy config. Link with `supabase link`.
+# Edge Functions: deploy with `supabase functions deploy send-product-update`
+
+[functions.send-product-update]
+verify_jwt = false

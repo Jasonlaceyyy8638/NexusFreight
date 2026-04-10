@@ -125,13 +125,16 @@ export function CrispIdentitySync() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === "SIGNED_OUT" || !session?.user) {
+        // Only reset on explicit sign-out. Anonymous first paint fires with no session;
+        // calling session:reset there would create a second Crisp visitor (duplicate inbox rows).
+        if (event === "SIGNED_OUT") {
           resetCrispSession();
           return;
         }
-        if (session.user.email) {
-          void syncFromUserId(session.user.id, session.user.email);
+        if (!session?.user?.email) {
+          return;
         }
+        void syncFromUserId(session.user.id, session.user.email);
       }
     );
 

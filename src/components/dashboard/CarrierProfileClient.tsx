@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
+import { BrokerPacketPanel } from "@/components/dashboard/BrokerPacketPanel";
 import { EditCarrierModal } from "@/components/dashboard/EditCarrierModal";
 import { LoadQuickAlertButtons } from "@/components/dashboard/LoadQuickAlertButtons";
 import { LoadStatusBadge } from "@/components/dashboard/LoadStatusBadge";
@@ -49,6 +50,8 @@ export function CarrierProfileClient(props: {
     isCarrierOrg,
   } = useDashboardData();
   const [editOpen, setEditOpen] = useState(false);
+  const [profileTab, setProfileTab] = useState<"overview" | "packet">("overview");
+  const showPacketTab = !isCarrierOrg;
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -174,6 +177,41 @@ export function CarrierProfileClient(props: {
         ) : null}
       </div>
 
+      {showPacketTab ? (
+        <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4">
+          <button
+            type="button"
+            onClick={() => setProfileTab("overview")}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              profileTab === "overview"
+                ? "bg-[#007bff] text-white"
+                : "border border-white/15 text-slate-300 hover:bg-white/5"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => setProfileTab("packet")}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              profileTab === "packet"
+                ? "bg-[#007bff] text-white"
+                : "border border-white/15 text-slate-300 hover:bg-white/5"
+            }`}
+          >
+            Broker setup packet
+          </button>
+        </div>
+      ) : null}
+
+      {showPacketTab && profileTab === "packet" ? (
+        <BrokerPacketPanel
+          carrierId={carrier.id}
+          carrierName={carrier.name}
+          mcNumber={carrier.mc_number}
+        />
+      ) : (
+        <>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-white/10 bg-[#16181A]/90 p-6 backdrop-blur-sm">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -351,6 +389,8 @@ export function CarrierProfileClient(props: {
           canViewFinancials={canFin}
         />
       ) : null}
+        </>
+      )}
     </main>
   );
 }
