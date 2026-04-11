@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminUserOrNull } from "@/lib/admin/require-admin";
 import { logAdminAction } from "@/lib/admin/log-action";
+import { sendTrialUpdatedEmail } from "@/lib/email/admin-customer-notify";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -62,6 +63,17 @@ export async function POST(req: Request) {
     );
   }
 
+  const { data: authUser } = await svc.auth.admin.getUserById(userId);
+  let notifyTo = authUser.user?.email?.trim() ?? "";
+  if (!notifyTo) {
+    const { data: prof } = await svc
+      .from("profiles")
+      .select("auth_email")
+      .eq("id", userId)
+      .maybeSingle();
+    notifyTo = (prof as { auth_email?: string | null } | null)?.auth_email?.trim() ?? "";
+  }
+
   await logAdminAction({
     adminEmail: adminUser.email,
     affectedUserId: userId,
@@ -69,6 +81,14 @@ export async function POST(req: Request) {
     reason: reason || null,
     metadata: { trial_ends_at: iso },
   });
+
+  if (notifyTo) {
+    try {
+      await sendTrialUpdatedEmail(notifyTo, iso);
+    } catch (e) {
+      console.error("[admin/trial] email:", e);
+    }
+  }
 
   return NextResponse.json({ ok: true, trialEndsAt: iso });
 }

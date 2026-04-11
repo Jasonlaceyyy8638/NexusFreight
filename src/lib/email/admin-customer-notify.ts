@@ -50,12 +50,45 @@ export async function sendAccountCanceledEmail(to: string): Promise<void> {
   const { error } = await resend.emails.send({
     from: FROM,
     to: to.trim(),
-    subject: "Your NexusFreight account has been closed",
+    subject: "Your NexusFreight subscription has been canceled",
     text: `Hello,
 
-Your account has been closed. We're sorry to see you go—is there anything we could have done better?
+Your paid NexusFreight subscription has been canceled. You will not be charged again for that subscription.
 
-Reply to this email if you'd like to share feedback.
+If you did not request this change, reply to this email and we will help.
+
+— NexusFreight`,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** After admin trial end override on the customer profile (dashboard access window). */
+export async function sendTrialUpdatedEmail(
+  to: string,
+  trialEndsAtIso: string
+): Promise<void> {
+  const k = key();
+  if (!k) return;
+  const resend = new Resend(k);
+  const when = new Date(trialEndsAtIso);
+  const human = Number.isNaN(when.getTime())
+    ? trialEndsAtIso
+    : when.toLocaleString(undefined, {
+        dateStyle: "long",
+        timeStyle: "short",
+      });
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: to.trim(),
+    subject: "Your NexusFreight trial access has been updated",
+    text: `Hello,
+
+Your NexusFreight trial access end date has been updated by our team.
+
+New access end (UTC): ${trialEndsAtIso}
+(${human} in your local timezone if your device is set correctly.)
+
+If you have questions, reply to this email.
 
 — NexusFreight`,
   });
