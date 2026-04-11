@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { DashboardDesktopOptimizedFooter } from "@/components/dashboard/DashboardDesktopOptimizedFooter";
 import { GettingStartedLaunchpad } from "@/components/dashboard/GettingStartedLaunchpad";
+import { MarketPulse } from "@/components/dashboard/MarketPulse";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { getDispatcherCommissionCentsForLoad } from "@/lib/calculations";
 
@@ -98,6 +99,8 @@ export function DashboardOverview() {
             authority only.
           </p>
         </header>
+
+        <MarketPulse />
 
         <section className="rounded-xl border border-white/[0.08] bg-[#16181A]/90 p-6 backdrop-blur-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
@@ -232,6 +235,8 @@ export function DashboardOverview() {
           <GettingStartedLaunchpad />
         </div>
       </div>
+
+      <MarketPulse />
 
       <section className="grid gap-4 sm:grid-cols-3">
         {fin ? (

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { Link2 } from "lucide-react";
+import { toast } from "sonner";
 import { AddCarrierModal } from "@/components/dashboard/AddCarrierModal";
 import { WorkspaceRequiredModal } from "@/components/dashboard/WorkspaceRequiredModal";
 import { EditCarrierModal } from "@/components/dashboard/EditCarrierModal";
@@ -11,6 +13,7 @@ import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
 import { NewAuthorityBadge } from "@/components/fmcsa/NewAuthorityBadge";
 import { carrierAuthorityAssignable } from "@/lib/carrier-authority";
 import { carrierIsNewAuthority } from "@/lib/fmcsa_authority";
+import { getSiteUrl } from "@/lib/site-url";
 
 export function DashboardCarriersPage(props?: {
   initialAddCarrierOpen?: boolean;
@@ -27,6 +30,7 @@ export function DashboardCarriersPage(props?: {
     drivers,
     refresh,
     permissions,
+    orgType,
   } = useDashboardData();
   const router = useRouter();
   const [addCarrierOpen, setAddCarrierOpen] = useState(initialAddCarrierOpen);
@@ -121,6 +125,51 @@ export function DashboardCarriersPage(props?: {
     [interactiveDemo, openDemoAccountGate, emailDrafts]
   );
 
+  const shareOnboardingLink = useCallback(async () => {
+    if (interactiveDemo) {
+      openDemoAccountGate();
+      return;
+    }
+    if (!supabase || usingDemo) {
+      toast.error("Connect Supabase to use onboarding links.");
+      return;
+    }
+    if (!orgId) {
+      setWorkspaceRequiredOpen(true);
+      return;
+    }
+    if (orgType !== "Agency") {
+      toast.error("Onboarding links are only for agency workspaces.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/org/onboarding-slug/ensure", {
+        method: "POST",
+        credentials: "include",
+      });
+      const j = (await res.json()) as { slug?: string; error?: string };
+      if (!res.ok) {
+        throw new Error(j.error || "Could not create link.");
+      }
+      const slug = j.slug?.trim();
+      if (!slug) {
+        throw new Error("Missing slug from server.");
+      }
+      const url = `${getSiteUrl()}/onboard/${encodeURIComponent(slug)}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied! Paste it to your driver.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Copy failed.");
+    }
+  }, [
+    interactiveDemo,
+    openDemoAccountGate,
+    supabase,
+    usingDemo,
+    orgId,
+    orgType,
+  ]);
+
   if (isCarrierOrg) {
     return (
       <div className="px-4 py-16 text-center text-sm text-slate-500 sm:px-6">
@@ -144,29 +193,41 @@ export function DashboardCarriersPage(props?: {
             verification.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (interactiveDemo) {
-              openDemoAccountGate();
-              return;
-            }
-            if (!supabase || usingDemo) {
-              alert(
-                "Connect Supabase and sign in with your dispatcher account to add carriers verified by FMCSA."
-              );
-              return;
-            }
-            if (!orgId) {
-              setWorkspaceRequiredOpen(true);
-              return;
-            }
-            setAddCarrierOpen(true);
-          }}
-          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10 md:w-auto"
-        >
-          Add carrier
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+          {orgType === "Agency" ? (
+            <button
+              type="button"
+              onClick={() => void shareOnboardingLink()}
+              className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-md border border-sky-500/35 bg-sky-950/35 px-4 text-sm font-semibold text-sky-100 hover:bg-sky-950/55 sm:w-auto"
+            >
+              <Link2 className="h-4 w-4 shrink-0" aria-hidden />
+              Share onboarding link
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              if (interactiveDemo) {
+                openDemoAccountGate();
+                return;
+              }
+              if (!supabase || usingDemo) {
+                alert(
+                  "Connect Supabase and sign in with your dispatcher account to add carriers verified by FMCSA."
+                );
+                return;
+              }
+              if (!orgId) {
+                setWorkspaceRequiredOpen(true);
+                return;
+              }
+              setAddCarrierOpen(true);
+            }}
+            className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10 sm:w-auto"
+          >
+            Add carrier
+          </button>
+        </div>
       </div>
 
       <ul className="grid gap-3 sm:grid-cols-2">

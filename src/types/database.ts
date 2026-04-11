@@ -20,6 +20,8 @@ export type Organization = {
   dot_number?: string | null;
   mc_number?: string | null;
   is_active_authority?: boolean | null;
+  /** Public driver onboarding URL segment (`/onboard/[slug]`). */
+  onboarding_slug?: string | null;
 };
 
 export type TrialType = "BETA" | "TRIAL";
@@ -33,6 +35,21 @@ export type UserOnboarding = {
   packet_ready: boolean;
   created_at: string;
   updated_at: string;
+};
+
+/** Daily national spot snapshot (`market_rates`); numeric columns may arrive as strings from PostgREST. */
+export type MarketRatesRow = {
+  id: string;
+  as_of: string;
+  source: string;
+  van_dry: number;
+  reefer: number;
+  flatbed: number;
+  box_truck: number;
+  sprinter: number;
+  power_only: number;
+  pro_tip: string | null;
+  created_at: string;
 };
 
 export type Profile = {

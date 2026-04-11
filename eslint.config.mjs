@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "public/mapbox-gl-csp-worker.js",
     "scripts/copy-mapbox-worker.js",
+    // Deno Edge Functions — linted/deployed by Supabase, not Next ESLint rules
+    "supabase/functions/**",
   ]),
 ]);
 

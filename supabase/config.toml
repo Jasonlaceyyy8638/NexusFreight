@@ -2,6 +2,7 @@
 # Edge Functions: deploy with `supabase functions deploy send-product-update`
 #   `supabase functions deploy discord-notifier`
 #   `supabase functions deploy stripe-to-discord`
+#   `supabase functions deploy automated-market-pulse`
 
 [functions.send-product-update]
 verify_jwt = false
@@ -10,4 +11,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.stripe-to-discord]
+verify_jwt = false
+
+[functions.automated-market-pulse]
 verify_jwt = false
