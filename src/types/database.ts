@@ -24,6 +24,17 @@ export type Organization = {
 
 export type TrialType = "BETA" | "TRIAL";
 
+/** Per-user getting-started checklist (`user_onboarding` table). */
+export type UserOnboarding = {
+  user_id: string;
+  profile_done: boolean;
+  carrier_added: boolean;
+  doc_uploaded: boolean;
+  packet_ready: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Profile = {
   id: string;
   org_id: string;

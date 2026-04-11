@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/broker-packet/categories";
 import { canSendToBroker, completenessPercent } from "@/lib/broker-packet/completeness";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
+import { mergeUserOnboardingWithWorkspace } from "@/lib/user-onboarding/sync";
 
 type DocRow = {
   id: string;
@@ -119,6 +121,7 @@ export function BrokerPacketPanel({
     }
     setBusyCat(cat);
     setErr(null);
+    const hadVault = byCategory.has("w9") || byCategory.has("coi");
     try {
       const safe = sanitizeFilename(file.name);
       const path = `${orgId}/${carrierId}/${cat}/${Date.now()}_${safe}`;
@@ -151,6 +154,23 @@ export function BrokerPacketPanel({
       }
       await load();
       await refreshDashboard();
+      if (
+        (cat === "w9" || cat === "coi") &&
+        !hadVault &&
+        !interactiveDemo &&
+        supabase &&
+        orgId
+      ) {
+        const { data: auth } = await supabase.auth.getUser();
+        const uid = auth.user?.id;
+        if (uid) {
+          await mergeUserOnboardingWithWorkspace(supabase, uid, orgId);
+          toast.success("Carrier vault initialized!");
+          window.setTimeout(() => {
+            toast.message("Compliance Level: Pro");
+          }, 450);
+        }
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Upload failed");
     } finally {

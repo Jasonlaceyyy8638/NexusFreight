@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { CarrierSelect } from "@/components/dashboard/CarrierSelect";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { isDispatcherPhoneProvided } from "@/lib/phone/dispatcher-phone";
+import {
+  computeProfileDone,
+  mergeUserOnboardingWithWorkspace,
+} from "@/lib/user-onboarding/sync";
 import { createClient } from "@/lib/supabase/client";
 import { resolveMapboxTokenFromProcessEnv } from "@/lib/mapbox/resolve-mapbox-env";
+import { OrgLogoSettingsSection } from "@/components/dashboard/OrgLogoSettingsSection";
 import { isTeamAdmin } from "@/lib/permissions";
 
 export function DashboardSettingsPage() {
@@ -17,6 +23,8 @@ export function DashboardSettingsPage() {
     profileRole,
     permissions,
     isCarrierOrg,
+    orgId,
+    authSessionUserId,
   } = useDashboardData();
   const dispatcherPhoneRequired =
     permissions.can_dispatch_loads || profileRole === "Dispatcher";
@@ -86,6 +94,11 @@ export function DashboardSettingsPage() {
       return;
     }
     setMobileBusy(true);
+    const profileOkBefore = computeProfileDone({
+      full_name: fullName,
+      phone_number: phone,
+      phone,
+    });
     try {
       const {
         data: { user },
@@ -106,6 +119,21 @@ export function DashboardSettingsPage() {
         .eq("id", user.id);
       if (error) throw error;
       setMobileMsg("Saved.");
+      if (
+        !interactiveDemo &&
+        orgId &&
+        authSessionUserId &&
+        authSessionUserId === user.id
+      ) {
+        const next = await mergeUserOnboardingWithWorkspace(
+          supabase,
+          authSessionUserId,
+          orgId
+        );
+        if (!profileOkBefore && next.profile_done) {
+          toast.success("Dispatch profile is go for launch.");
+        }
+      }
     } catch (e) {
       setMobileErr(e instanceof Error ? e.message : "Save failed.");
     } finally {
@@ -202,6 +230,17 @@ export function DashboardSettingsPage() {
           </p>
         )}
       </section>
+
+      {orgId && supabase ? (
+        <OrgLogoSettingsSection
+          supabase={supabase}
+          orgId={orgId}
+          canManage={profileRole === "Admin"}
+          interactiveDemo={interactiveDemo}
+          usingDemo={usingDemo}
+          isCarrierOrg={isCarrierOrg}
+        />
+      ) : null}
 
       {isCarrierOrg ? (
         <section className="rounded-xl border border-white/10 bg-[#16181A]/90 p-6">

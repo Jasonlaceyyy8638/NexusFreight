@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { DashboardDesktopOptimizedFooter } from "@/components/dashboard/DashboardDesktopOptimizedFooter";
+import { GettingStartedLaunchpad } from "@/components/dashboard/GettingStartedLaunchpad";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { getDispatcherCommissionCentsForLoad } from "@/lib/calculations";
 
@@ -225,6 +226,8 @@ export function DashboardOverview() {
           and revenue &amp; settlements.
         </p>
       </header>
+
+      <GettingStartedLaunchpad />
 
       <section className="grid gap-4 sm:grid-cols-3">
         {fin ? (

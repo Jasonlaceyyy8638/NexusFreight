@@ -12,7 +12,10 @@ import { NewAuthorityBadge } from "@/components/fmcsa/NewAuthorityBadge";
 import { carrierAuthorityAssignable } from "@/lib/carrier-authority";
 import { carrierIsNewAuthority } from "@/lib/fmcsa_authority";
 
-export function DashboardCarriersPage() {
+export function DashboardCarriersPage(props?: {
+  initialAddCarrierOpen?: boolean;
+}) {
+  const { initialAddCarrierOpen = false } = props ?? {};
   const {
     supabase,
     orgId,
@@ -26,7 +29,10 @@ export function DashboardCarriersPage() {
     permissions,
   } = useDashboardData();
   const router = useRouter();
-  const [addCarrierOpen, setAddCarrierOpen] = useState(false);
+  const [addCarrierOpen, setAddCarrierOpen] = useState(initialAddCarrierOpen);
+  useEffect(() => {
+    if (initialAddCarrierOpen) setAddCarrierOpen(true);
+  }, [initialAddCarrierOpen]);
   const [workspaceRequiredOpen, setWorkspaceRequiredOpen] = useState(false);
   const [editCarrier, setEditCarrier] = useState<(typeof carriers)[0] | null>(
     null

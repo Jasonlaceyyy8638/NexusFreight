@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Toaster } from "sonner";
 import { DashboardDataProvider } from "@/components/dashboard/DashboardDataProvider";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import type { InteractiveDemoVariant } from "@/lib/demo_data";
@@ -48,6 +49,7 @@ export function DashboardLayoutClient({
       demoSession={demoSession}
       serverOnboardingRequired={serverOnboardingRequired}
     >
+      <Toaster richColors position="top-center" theme="dark" />
       <DemoQuerySync />
       <DashboardShell
         demoSession={demoSession}

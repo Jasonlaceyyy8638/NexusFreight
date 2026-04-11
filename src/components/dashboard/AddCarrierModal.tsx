@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { fetchCarrierData } from "@/app/actions/fmcsa";
 import { CarrierSelect } from "@/components/dashboard/CarrierSelect";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { AuthorityActiveSinceBlock } from "@/components/fmcsa/AuthorityActiveSinceBlock";
 import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
+import { mergeUserOnboardingWithWorkspace } from "@/lib/user-onboarding/sync";
 import type { FmcsaCompanyData } from "@/lib/fmcsa_service";
 import type { ServiceFeeType } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -48,8 +50,12 @@ export function AddCarrierModal({
   usingDemo,
   onCreated,
 }: Props) {
-  const { permissions } = useDashboardData();
+  const { permissions, carriers, authSessionUserId } = useDashboardData();
   const canFin = permissions.can_view_financials;
+  const hadNoCarriersRef = useRef(false);
+  useEffect(() => {
+    if (open) hadNoCarriersRef.current = carriers.length === 0;
+  }, [open, carriers.length]);
   const [mcInput, setMcInput] = useState("");
   const [fmcsa, setFmcsa] = useState<FmcsaUiState>({ kind: "idle" });
   const [feeType, setFeeType] = useState<ServiceFeeType>("percent");
@@ -203,6 +209,19 @@ export function AddCarrierModal({
         authority_date: fmcsa.data.authority_date,
         is_new_authority: fmcsa.data.is_new_authority,
       });
+      if (
+        !usingDemo &&
+        authSessionUserId &&
+        hadNoCarriersRef.current
+      ) {
+        void mergeUserOnboardingWithWorkspace(
+          supabase,
+          authSessionUserId,
+          orgId
+        ).then(() => {
+          toast.success("Carrier added — your fleet just leveled up.");
+        });
+      }
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add carrier");
