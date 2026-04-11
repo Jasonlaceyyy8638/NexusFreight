@@ -22,6 +22,7 @@ export function LoginClient() {
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
   const nextPath = safeNextPath(searchParams.get("next"));
+  const passwordResetOk = searchParams.get("reset") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,6 +76,15 @@ export function LoginClient() {
           <span className="text-slate-300">/admin/control-center</span>.
         </p>
 
+        {passwordResetOk ? (
+          <p
+            className="mt-6 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
+            role="status"
+          >
+            Your password was updated. Sign in with your new password.
+          </p>
+        ) : null}
+
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-8 space-y-4">
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
             Email
@@ -99,6 +109,14 @@ export function LoginClient() {
               required
             />
           </label>
+          <p className="text-right text-sm">
+            <Link
+              href="/auth/forgot-password"
+              className="font-medium text-[#3395ff] hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </p>
           {error ? (
             <p className="text-sm text-red-400" role="alert">
               {error}
