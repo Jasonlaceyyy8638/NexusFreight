@@ -52,6 +52,17 @@ export type MarketRatesRow = {
   created_at: string;
 };
 
+/** One equipment row in normalized `market_rates` (dashboard merges six rows per pulse). */
+export type MarketRateEquipmentRow = {
+  equipment_type: string;
+  usd_per_mile: number;
+  as_of: string;
+  source: string;
+  pro_tip: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Profile = {
   id: string;
   org_id: string;

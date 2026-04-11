@@ -11,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { MarketRatesRow } from "@/types/database";
+import type { MarketRatesRow, MarketRateEquipmentRow } from "@/types/database";
 
 type RateKey = keyof Pick<
   MarketRatesRow,
@@ -77,7 +77,7 @@ function parseNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function rowFromRecord(raw: Record<string, unknown>): MarketRatesRow {
+function rowFromWideRecord(raw: Record<string, unknown>): MarketRatesRow {
   return {
     id: String(raw.id ?? ""),
     as_of: String(raw.as_of ?? ""),
@@ -93,6 +93,43 @@ function rowFromRecord(raw: Record<string, unknown>): MarketRatesRow {
         ? null
         : String(raw.pro_tip),
     created_at: String(raw.created_at ?? ""),
+  };
+}
+
+function equipmentRowFromRecord(raw: Record<string, unknown>): MarketRateEquipmentRow {
+  return {
+    equipment_type: String(raw.equipment_type ?? ""),
+    usd_per_mile: parseNum(raw.usd_per_mile),
+    as_of: String(raw.as_of ?? ""),
+    source: String(raw.source ?? ""),
+    pro_tip:
+      raw.pro_tip == null || raw.pro_tip === ""
+        ? null
+        : String(raw.pro_tip),
+    created_at: String(raw.created_at ?? ""),
+    updated_at: String(raw.updated_at ?? raw.created_at ?? ""),
+  };
+}
+
+/** Merges six `market_rates` equipment rows (one shared `as_of`) into the legacy wide shape for the UI. */
+function snapshotFromEquipmentRows(rows: MarketRateEquipmentRow[]): MarketRatesRow | null {
+  if (!rows.length) return null;
+  const byType = new Map(rows.map((r) => [r.equipment_type, r]));
+  const dry = byType.get("dry_van");
+  const pick = (t: string) => parseNum(byType.get(t)?.usd_per_mile);
+  const asOf = dry?.as_of ?? rows[0]?.as_of ?? "";
+  return {
+    id: String(dry?.equipment_type ?? rows[0]?.equipment_type ?? "pulse"),
+    as_of: asOf,
+    source: String(dry?.source ?? rows[0]?.source ?? ""),
+    van_dry: pick("dry_van"),
+    reefer: pick("reefer"),
+    flatbed: pick("flatbed"),
+    box_truck: pick("box_truck"),
+    sprinter: pick("cargo_van"),
+    power_only: pick("power_only"),
+    pro_tip: dry?.pro_tip?.trim() ? dry.pro_tip : null,
+    created_at: String(dry?.updated_at ?? dry?.created_at ?? ""),
   };
 }
 
@@ -144,7 +181,7 @@ export function MarketPulse() {
       .from("market_rates")
       .select("*")
       .order("as_of", { ascending: false })
-      .limit(2);
+      .limit(36);
 
     if (error) {
       setErr(error.message);
@@ -153,9 +190,37 @@ export function MarketPulse() {
       return;
     }
 
-    const rows = (data ?? []) as Record<string, unknown>[];
-    setLatest(rows[0] ? rowFromRecord(rows[0]) : null);
-    setPrevious(rows[1] ? rowFromRecord(rows[1]) : null);
+    const raw = (data ?? []) as Record<string, unknown>[];
+    if (!raw.length) {
+      setLatest(null);
+      setPrevious(null);
+      setErr(null);
+      return;
+    }
+
+    const first = raw[0] as Record<string, unknown>;
+    if (first.equipment_type == null) {
+      const wide = raw.filter((r) => r.van_dry != null).slice(0, 2);
+      setLatest(wide[0] ? rowFromWideRecord(wide[0]) : null);
+      setPrevious(wide[1] ? rowFromWideRecord(wide[1]) : null);
+      setErr(null);
+      return;
+    }
+
+    const batches = new Map<string, MarketRateEquipmentRow[]>();
+    for (const rec of raw) {
+      const row = equipmentRowFromRecord(rec);
+      const key = row.as_of;
+      if (!batches.has(key)) batches.set(key, []);
+      batches.get(key)!.push(row);
+    }
+    const distinctAsOfs = [...batches.keys()].sort(
+      (a, b) => new Date(b).getTime() - new Date(a).getTime()
+    );
+    const latestBatch = distinctAsOfs[0] ? batches.get(distinctAsOfs[0])! : [];
+    const prevBatch = distinctAsOfs[1] ? batches.get(distinctAsOfs[1])! : [];
+    setLatest(snapshotFromEquipmentRows(latestBatch));
+    setPrevious(snapshotFromEquipmentRows(prevBatch));
     setErr(null);
   }, [supabase]);
 
@@ -178,7 +243,7 @@ export function MarketPulse() {
       .channel("dashboard_market_pulse_v1")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "market_rates" },
+        { event: "*", schema: "public", table: "market_rates" },
         () => {
           void loadLastTwo();
         }

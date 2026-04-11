@@ -7,7 +7,7 @@ const corsHeaders: Record<string, string> = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-/** Production: `false` — Resend to all eligible `profiles.auth_email`. Set `true` to send only to `MARKET_PULSE_TEST_EMAIL`. */
+/** Production: `false` — Resend to `profiles.auth_email` only. Set `true` for test inbox only. */
 const IS_TEST_MODE = false;
 /** Quiet mode: pulse email recipient only (no profile blast). */
 const MARKET_PULSE_TEST_EMAIL = "jasonlaceyyy8638@gmail.com";
@@ -31,6 +31,17 @@ function geminiGenerateContentUrl(apiKey: string): string {
 const GEMINI_FALLBACK_PRO_TIP =
   "Market conditions remain steady; ensure you are quoting based on current spot benchmarks.";
 
+/** Expedite / cargo-van tier in DB column `sprinter` (equipment `cargo_van`). Dashboard "Sprinter" card uses `power_only`. */
+const EXPEDITE_MAX_USD = 1.45;
+/** When expedite tier exceeds `EXPEDITE_MAX_USD`, snap to this (production guardrail). */
+const EXPEDITE_CLAMP_USD = 1.4;
+/** UI "Sprinter" (`power_only`) tracks cargo-van tier with a small uplift. */
+const POWER_ONLY_ABOVE_CARGO_VAN = 0.05;
+
+const BOX_TRUCK_LO = 1.7;
+const BOX_TRUCK_HI = 2.1;
+const BOX_TRUCK_FALLBACK = 1.85;
+
 type MarketRow = {
   van_dry: number;
   reefer: number;
@@ -47,6 +58,61 @@ function round4(n: number): number {
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
+}
+
+/**
+ * Sync Step: `sprinter` holds the cargo-van / expedite benchmark; `power_only` is the dashboard "Sprinter" card
+ * and must track that tier (not dry-van-derived linehaul). Hard clamps for expedite ceiling and box band.
+ */
+function applyExpediteSyncBoxClamp(derived: Omit<MarketRow, "source">): void {
+  let cargoVan = derived.sprinter;
+  if (!Number.isFinite(cargoVan) || cargoVan <= 0) cargoVan = 1.3;
+  if (cargoVan > EXPEDITE_MAX_USD) cargoVan = EXPEDITE_CLAMP_USD;
+  derived.sprinter = round4(cargoVan);
+
+  derived.power_only = round4(derived.sprinter + POWER_ONLY_ABOVE_CARGO_VAN);
+
+  let box = derived.box_truck;
+  if (!Number.isFinite(box) || box < BOX_TRUCK_LO || box > BOX_TRUCK_HI) {
+    box = BOX_TRUCK_FALLBACK;
+  }
+  derived.box_truck = round4(box);
+
+  if (derived.box_truck <= derived.sprinter) {
+    derived.box_truck = round4(
+      clamp(derived.sprinter + 0.35, BOX_TRUCK_LO, BOX_TRUCK_HI)
+    );
+  }
+}
+
+/** UTC `YYYY-MM-DD` — aligns with Postgres `CURRENT_DATE` when the session timezone is UTC. */
+function utcCalendarDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function buildEquipmentRateUpserts(params: {
+  derived: Omit<MarketRow, "source">;
+  source: string;
+  pro_tip: string;
+  asOf: string;
+}): Array<{
+  equipment_type: string;
+  usd_per_mile: number;
+  as_of: string;
+  source: string;
+  pro_tip: string | null;
+  updated_at: string;
+}> {
+  const { derived, source, pro_tip, asOf } = params;
+  const base = { as_of: asOf, source, updated_at: asOf };
+  return [
+    { equipment_type: "dry_van", usd_per_mile: derived.van_dry, ...base, pro_tip },
+    { equipment_type: "reefer", usd_per_mile: derived.reefer, ...base, pro_tip: null },
+    { equipment_type: "flatbed", usd_per_mile: derived.flatbed, ...base, pro_tip: null },
+    { equipment_type: "box_truck", usd_per_mile: derived.box_truck, ...base, pro_tip: null },
+    { equipment_type: "cargo_van", usd_per_mile: derived.sprinter, ...base, pro_tip: null },
+    { equipment_type: "power_only", usd_per_mile: derived.power_only, ...base, pro_tip: null },
+  ];
 }
 
 function normKey(s: string): string {
@@ -186,6 +252,7 @@ async function marketAnalyst(params: {
       `**Strict value hierarchy (highest $/mi → lowest)** — every number you output must respect this order:\n` +
       `Reefer > Flatbed > Dry Van > Box Truck (26ft) > Sprinter/Cargo Van.\n\n` +
       `**Jason guardrails** (the server clamps JSON that drifts):\n\n` +
+      `**Strict output ranges (your JSON must comply):** Sprinter/Cargo Van **$1.15–$1.45**/mi · Box Truck (26ft) **$1.70–$2.10**/mi.\n\n` +
       `Dry Van: From DAT/news when possible; national dry van typically **$2.30–$2.50**/mi.\n\n` +
       `Reefer: **$0.40–$0.60** above the Dry Van rate you output.\n\n` +
       `Flatbed: **$0.20–$0.40** above the Dry Van rate you output.\n\n` +
@@ -216,12 +283,12 @@ async function marketAnalyst(params: {
         sprinter: {
           type: "number",
           description:
-            "Expedite sprinter/cargo van USD/mi; hard band ~1.15–1.45, never above 1.50.",
+            "Sprinter/cargo van USD/mi; strict $1.15–$1.45, never above $1.50.",
         },
         boxtruck: {
           type: "number",
           description:
-            "26ft box truck USD/mi; ~1.70–2.10, always above sprinter, below dry van.",
+            "26ft box truck USD/mi; strict $1.70–$2.10, always above sprinter, below dry van.",
         },
         pro_tip: {
           type: "string",
@@ -295,7 +362,11 @@ async function marketAnalyst(params: {
 
     let reefer = pick("reefer");
     let flatbed = pick("flatbed");
+    const cargo_van = pick("cargo_van", "cargoVan", "cargoVanUsd", "cargovan");
     let spr = pick("sprinter", "cargoVan", "cargo_van");
+    if (Number.isFinite(cargo_van)) {
+      spr = cargo_van;
+    }
     let box = pick("boxtruck", "box_truck", "boxTruck");
 
     if (!Number.isFinite(reefer)) reefer = vanRaw + 0.5;
@@ -347,6 +418,10 @@ async function marketAnalyst(params: {
       });
     }
 
+    if (spr > EXPEDITE_MAX_USD) {
+      spr = EXPEDITE_CLAMP_USD;
+    }
+
     console.log(
       "[marketAnalyst] Jason guardrails — final rates (USD/mi):",
       JSON.stringify({
@@ -358,24 +433,22 @@ async function marketAnalyst(params: {
       })
     );
 
-    const po = round4(van * 0.88);
-
     const rawTip = j.pro_tip ?? j.proTip;
     const pro_tip = typeof rawTip === "string" && rawTip.trim()
       ? sanitizeOneSentenceGemini(rawTip)
       : GEMINI_FALLBACK_PRO_TIP;
 
-    return {
-      row: {
-        van_dry: round4(van),
-        reefer: round4(reefer),
-        flatbed: round4(flatbed),
-        box_truck: round4(box),
-        sprinter: round4(spr),
-        power_only: po,
-      },
-      pro_tip,
+    const row: Omit<MarketRow, "source"> = {
+      van_dry: round4(van),
+      reefer: round4(reefer),
+      flatbed: round4(flatbed),
+      box_truck: round4(box),
+      sprinter: round4(spr),
+      power_only: 0,
     };
+    applyExpediteSyncBoxClamp(row);
+
+    return { row, pro_tip };
   } catch (e) {
     console.error("[marketAnalyst]", e instanceof Error ? e.message : String(e));
     return null;
@@ -494,13 +567,17 @@ type PulseResolution = {
 async function resolvePulseMarketRates(
   prevVan: number | null = null
 ): Promise<PulseResolution> {
-  const fromVan = (usdPerMile: number, source: string): PulseResolution => ({
-    pulse: {
-      ...deriveRates(usdPerMile),
-      source,
-    },
-    analystProTip: null,
-  });
+  const fromVan = (usdPerMile: number, source: string): PulseResolution => {
+    const d = deriveRates(usdPerMile);
+    applyExpediteSyncBoxClamp(d);
+    return {
+      pulse: {
+        ...d,
+        source,
+      },
+      analystProTip: null,
+    };
+  };
 
   const override = Deno.env.get("MARKET_PULSE_VAN_RATE_USD_MI")?.trim();
   if (override) {
@@ -718,100 +795,144 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Nexus Control / announcement-style HTML (mirrors `src/lib/admin/announcement-email-html.ts` layout).
+ */
 function buildPulseEmailHtml(params: {
   dateLabel: string;
   rates: MarketRow & { pro_tip: string };
   dashboardUrl: string;
 }): string {
-  const nat = (label: string) => `${label} (national average)`;
-  /** Five equipment benchmarks for email (power-only stays in DB / dashboard only). */
-  const rows = [
-    [nat("Dry van"), params.rates.van_dry],
-    [nat("Reefer"), params.rates.reefer],
-    [nat("Flatbed"), params.rates.flatbed],
-    [nat("Box truck (26ft)"), params.rates.box_truck],
-    [nat("Sprinter / cargo van (expedite)"), params.rates.sprinter],
-  ] as const;
-  const tr = rows
-    .map(
-      ([label, val]) =>
-        `<tr><td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151;">${escapeHtml(label)}</td>` +
-          `<td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600;color:#0f172a;text-align:right;">$${val.toFixed(2)}/mi</td></tr>`
-    )
-    .join("");
+  let origin = "https://nexusfreight.tech";
+  try {
+    origin = new URL(params.dashboardUrl).origin;
+  } catch {
+    /* keep default */
+  }
+  const logoUrl = `${origin.replace(/\/$/, "")}/nexusfreight-logo-v2.svg`;
+  const dashHref = escapeHtml(params.dashboardUrl);
   const tip = escapeHtml(params.rates.pro_tip);
+
+  const rateCell = (label: string, val: number) =>
+    `<td width="50%" valign="top" style="padding:8px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#1c2127;border:1px solid #2a2f36;border-radius:10px;">` +
+    `<tr><td style="padding:14px 16px;">` +
+    `<p style="margin:0;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">${escapeHtml(label)}</p>` +
+    `<p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#f8fafc;letter-spacing:-0.02em;">$${val.toFixed(2)}<span style="font-size:13px;font-weight:600;color:#94a3b8;">/mi</span></p>` +
+    `</td></tr></table></td>`;
+
+  const r = params.rates;
+  const gridRows =
+    `<tr>${rateCell("Dry van (national)", r.van_dry)}${rateCell("Reefer", r.reefer)}</tr>` +
+    `<tr>${rateCell("Flatbed", r.flatbed)}${rateCell("Box truck (26ft)", r.box_truck)}</tr>` +
+    `<tr>${rateCell("Cargo van (expedite)", r.sprinter)}${rateCell("Sprinter", r.power_only)}</tr>`;
+
   return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px;">
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /></head>
+<body style="margin:0;padding:0;background:#0f1114;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f1114;padding:32px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="600" style="max-width:600px;background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
-        <tr><td style="padding:24px 28px;background:linear-gradient(135deg,#0f172a,#1e3a5f);">
-          <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#93c5fd;">Market pulse</p>
-          <h1 style="margin:8px 0 0;font-size:22px;color:#f8fafc;">National average benchmarks</h1>
-          <p style="margin:6px 0 0;font-size:13px;color:#cbd5e1;">${escapeHtml(params.dateLabel)}</p>
-        </td></tr>
-        <tr><td style="padding:20px 28px 8px 28px;">
-          <p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:#475569;">These $/mi figures are <strong style="color:#334155;">national averages</strong> for planning and negotiation context—they are <strong style="color:#334155;">not guarantees</strong> on any specific load, lane, or contract.</p>
-          <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#64748b;">National average equipment ($/mi)</p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-            <thead><tr style="background:#f8fafc;">
-              <th align="left" style="padding:10px 12px;font-size:11px;text-transform:uppercase;color:#64748b;">Equipment</th>
-              <th align="right" style="padding:10px 12px;font-size:11px;text-transform:uppercase;color:#64748b;">Rate</th>
-            </tr></thead>
-            <tbody>${tr}</tbody>
-          </table>
-        </td></tr>
-        <tr><td style="padding:8px 28px 24px 28px;">
-          <div style="margin-top:16px;padding:14px 16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">
-            <p style="margin:0;font-size:12px;font-weight:700;color:#1d4ed8;text-transform:uppercase;">Pro tip</p>
-            <p style="margin:8px 0 0;font-size:15px;line-height:1.55;color:#1e293b;">${tip}</p>
-          </div>
-          <p style="margin:22px 0 0;font-size:13px;">
-            <a href="${escapeHtml(params.dashboardUrl)}" style="color:#2563eb;font-weight:600;">Open dashboard →</a>
-          </p>
-        </td></tr>
-        <tr><td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;">
-          NexusFreight · Automated morning market pulse · <a href="https://nexusfreight.tech" style="color:#64748b;">nexusfreight.tech</a>
-        </td></tr>
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#16181a;border:1px solid #2a2f36;border-radius:12px;overflow:hidden;">
+        <tr>
+          <td style="padding:24px 32px 20px 32px;border-bottom:1px solid #2a2f36;background:#121416;">
+            <img src="${escapeHtml(logoUrl)}" alt="NexusFreight" width="200" style="display:block;max-width:200px;height:auto;border:0;" />
+            <p style="margin:14px 0 0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#3b82f6;">Market pulse</p>
+            <h1 style="margin:8px 0 0;font-size:22px;font-weight:700;color:#f8fafc;line-height:1.25;">National spot benchmarks</h1>
+            <p style="margin:8px 0 0;font-size:13px;color:#94a3b8;">${escapeHtml(params.dateLabel)}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 8px 32px;">
+            <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#cbd5e1;">
+              Figures below are <strong style="color:#e2e8f0;">national averages</strong> for planning and negotiation—they are
+              <strong style="color:#e2e8f0;">not guarantees</strong> on any specific load, lane, or contract.
+            </p>
+            <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Equipment ($/mi)</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${gridRows}</table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 32px 28px 32px;">
+            <div style="margin-top:4px;padding:18px 20px;background:#0f1419;border-radius:10px;border:1px solid #1e3a5f;">
+              <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#60a5fa;">Nexus Intelligence</p>
+              <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#e2e8f0;">${tip}</p>
+            </div>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+              <tr>
+                <td style="border-radius:8px;background:#2563eb;">
+                  <a href="${dashHref}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Open dashboard</a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#64748b;">You received this because your account is on the morning Market Pulse list.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px 24px 32px;border-top:1px solid #2a2f36;">
+            <p style="margin:0;font-size:12px;line-height:1.55;color:#64748b;">NexusFreight · Automated morning market pulse · <a href="https://nexusfreight.tech" style="color:#60a5fa;text-decoration:none;">nexusfreight.tech</a></p>
+            <p style="margin:12px 0 0;font-size:11px;letter-spacing:0.08em;color:#475569;">Digital. Direct. Driven.</p>
+          </td>
+        </tr>
       </table>
     </td></tr>
   </table>
-</body></html>`;
+</body>
+</html>`;
 }
 
 const PROFILES_PAGE_SIZE = 1000;
 
-async function collectMarketPulseRecipients(
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CANARY_INFO_EMAIL = "info@nexusfreight.tech";
+
+function addEmailToMap(byEmail: Map<string, { email: string }>, raw: string | null | undefined): void {
+  if (raw == null || String(raw).trim() === "") return;
+  const em = String(raw).trim().toLowerCase();
+  if (!EMAIL_RE.test(em)) return;
+  if (!byEmail.has(em)) byEmail.set(em, { email: em });
+}
+
+/** Primary: all `profiles.auth_email` (paginated). */
+async function collectEmailsFromProfiles(
   supabase: ReturnType<typeof createClient>
-): Promise<{ recipients: Array<{ email: string }>; error: string | null }> {
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+): Promise<{ byEmail: Map<string, { email: string }>; error: string | null }> {
   const byEmail = new Map<string, { email: string }>();
   let from = 0;
   for (;;) {
-    const { data, error } = await supabase
+    const { data: users, error } = await supabase
       .from("profiles")
-      .select("auth_email, announcement_emails_opt_out")
+      .select("auth_email")
       .order("id", { ascending: true })
       .range(from, from + PROFILES_PAGE_SIZE - 1);
     if (error) {
       console.error("[automated-market-pulse] profiles select failed:", error);
-      return { recipients: [], error: error.message };
+      return { byEmail, error: error.message };
     }
-    const rows = data as Array<{
-      auth_email: string | null;
-      announcement_emails_opt_out: boolean | null;
-    }> | null;
-    if (!rows?.length) break;
-    for (const r of rows) {
-      if (r.announcement_emails_opt_out === true) continue;
-      const em = r.auth_email?.trim().toLowerCase() ?? "";
-      if (!em || !emailRe.test(em)) continue;
-      if (!byEmail.has(em)) byEmail.set(em, { email: em });
-    }
-    if (rows.length < PROFILES_PAGE_SIZE) break;
+    if (!users?.length) break;
+    const emails = users
+      .map((u: { auth_email: string | null }) => u.auth_email)
+      .filter(Boolean) as string[];
+    for (const raw of emails) addEmailToMap(byEmail, raw);
+    if (users.length < PROFILES_PAGE_SIZE) break;
     from += PROFILES_PAGE_SIZE;
   }
+  return { byEmail, error: null };
+}
+
+async function collectMarketPulseRecipients(
+  supabase: ReturnType<typeof createClient>
+): Promise<{ recipients: Array<{ email: string }>; error: string | null }> {
+  const { byEmail, error } = await collectEmailsFromProfiles(supabase);
+  if (error) {
+    return { recipients: [], error };
+  }
+
+  console.log(
+    "[automated-market-pulse] production recipient source: profiles.auth_email only, count:",
+    byEmail.size
+  );
+
   return { recipients: [...byEmail.values()], error: null };
 }
 
@@ -820,6 +941,54 @@ const json200 = (body: Record<string, unknown>) =>
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+type MarketRatesTableShape = "equipment" | "wide" | "missing";
+
+function isMarketRatesTableMissingInCache(message: string | undefined): boolean {
+  const m = (message ?? "").toLowerCase();
+  return (
+    (m.includes("market_rates") && m.includes("table") && m.includes("schema cache")) ||
+    (m.includes("relation") && m.includes("market_rates") && m.includes("does not exist"))
+  );
+}
+
+/** PostgREST validates selected columns; distinguishes wide vs equipment vs dropped table. */
+async function detectMarketRatesTableShape(
+  supabase: ReturnType<typeof createClient>
+): Promise<MarketRatesTableShape> {
+  const { error: eqErr } = await supabase
+    .from("market_rates")
+    .select("equipment_type")
+    .limit(1);
+  if (!eqErr) return "equipment";
+  if (isMarketRatesTableMissingInCache(eqErr.message)) return "missing";
+
+  const { error: wideErr } = await supabase
+    .from("market_rates")
+    .select("van_dry")
+    .limit(1);
+  if (!wideErr) return "wide";
+  if (isMarketRatesTableMissingInCache(wideErr.message)) return "missing";
+
+  console.error(
+    "[automated-market-pulse] market_rates schema unknown:",
+    eqErr.message,
+    wideErr.message
+  );
+  return "missing";
+}
+
+async function marketHistoryTableExists(
+  supabase: ReturnType<typeof createClient>
+): Promise<boolean> {
+  const { error } = await supabase.from("market_history").select("id").limit(1);
+  if (!error) return true;
+  const m = (error.message ?? "").toLowerCase();
+  const missing =
+    (m.includes("market_history") && m.includes("schema cache")) ||
+    (m.includes("market_history") && m.includes("does not exist"));
+  return !missing;
+}
 
 Deno.serve(async (req) => {
   try {
@@ -855,38 +1024,136 @@ Deno.serve(async (req) => {
   const supabaseServiceRoleKeyNorm = normKey(supabaseServiceRoleKey);
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKeyNorm);
 
-  const utcMidnight = new Date();
-  utcMidnight.setUTCHours(0, 0, 0, 0);
+  const ratesShape = await detectMarketRatesTableShape(supabase);
+  if (ratesShape === "missing") {
+    return json200({
+      ok: false,
+      error:
+        "public.market_rates is missing from the database (PostgREST schema cache). " +
+        "This usually means migration 00065 failed after renaming/dropping the table. " +
+        "Run supabase/migrations/00066_market_rates_restore_if_missing.sql in the SQL editor (or restore from backup), " +
+        "then run migration 00065 again if you still want per-equipment rows.",
+    });
+  }
+
+  const hasMarketHistory = await marketHistoryTableExists(supabase);
+
+  const todayUtc = utcCalendarDate(new Date());
+  /** Edge secret `FORCE_MARKET_PULSE=1` skips “already published today” so you can re-run manually. */
   const forceMarketPulse = Deno.env.get("FORCE_MARKET_PULSE")?.trim() === "1";
   if (!forceMarketPulse) {
-    const { count, error: cErr } = await supabase
-      .from("market_rates")
-      .select("id", { count: "exact", head: true })
-      .gte("as_of", utcMidnight.toISOString());
-    if (!cErr && (count ?? 0) > 0) {
-      return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "already_published_today_utc" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (hasMarketHistory) {
+      const { count, error: cErr } = await supabase
+        .from("market_history")
+        .select("id", { count: "exact", head: true })
+        .eq("snapshot_date", todayUtc);
+      if (!cErr && (count ?? 0) > 0) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: "already_published_today_utc_market_history",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (ratesShape === "wide") {
+      const utcMidnight = new Date();
+      utcMidnight.setUTCHours(0, 0, 0, 0);
+      const { count, error: cErr } = await supabase
+        .from("market_rates")
+        .select("id", { count: "exact", head: true })
+        .gte("as_of", utcMidnight.toISOString());
+      if (!cErr && (count ?? 0) > 0) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: "already_published_today_utc_market_rates_wide",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      const { data: dryPeek } = await supabase
+        .from("market_rates")
+        .select("as_of")
+        .eq("equipment_type", "dry_van")
+        .maybeSingle();
+      const asOf = dryPeek?.as_of;
+      if (typeof asOf === "string" && utcCalendarDate(new Date(asOf)) === todayUtc) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: "already_published_today_utc_equipment_rates",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
   }
 
-  const { data: prevRow } = await supabase
-    .from("market_rates")
-    .select("sprinter, van_dry, as_of")
-    .order("as_of", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let prevSprinter: number | null = null;
+  let prevVan: number | null = null;
 
-  const prevRec = prevRow as { sprinter?: unknown; van_dry?: unknown } | null;
-  const prevSprinter = (() => {
-    const n = Number(prevRec?.sprinter);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  })();
-  const prevVan = (() => {
-    const n = Number(prevRec?.van_dry);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  })();
+  if (hasMarketHistory) {
+    const { data: prevHist } = await supabase
+      .from("market_history")
+      .select("van_dry, sprinter")
+      .lt("snapshot_date", todayUtc)
+      .order("snapshot_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const prevRec = prevHist as { sprinter?: unknown; van_dry?: unknown } | null;
+    if (prevRec) {
+      const sv = Number(prevRec.sprinter);
+      const vv = Number(prevRec.van_dry);
+      if (Number.isFinite(sv) && sv > 0) prevSprinter = sv;
+      if (Number.isFinite(vv) && vv > 0) prevVan = vv;
+    }
+  }
+
+  if (prevVan == null || prevSprinter == null) {
+    if (ratesShape === "wide") {
+      const { data: prevRow } = await supabase
+        .from("market_rates")
+        .select("sprinter, van_dry")
+        .order("as_of", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const pr = prevRow as { sprinter?: unknown; van_dry?: unknown } | null;
+      if (prevSprinter == null) {
+        const n = Number(pr?.sprinter);
+        if (Number.isFinite(n) && n > 0) prevSprinter = n;
+      }
+      if (prevVan == null) {
+        const n = Number(pr?.van_dry);
+        if (Number.isFinite(n) && n > 0) prevVan = n;
+      }
+    } else {
+      const { data: maxAs } = await supabase
+        .from("market_rates")
+        .select("as_of")
+        .order("as_of", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const key = maxAs?.as_of;
+      if (typeof key === "string") {
+        const { data: rows } = await supabase
+          .from("market_rates")
+          .select("equipment_type, usd_per_mile")
+          .eq("as_of", key);
+        const list = rows as Array<{ equipment_type?: string; usd_per_mile?: unknown }> | null;
+        for (const r of list ?? []) {
+          const v = Number(r.usd_per_mile);
+          if (!Number.isFinite(v) || v <= 0) continue;
+          if (r.equipment_type === "dry_van" && prevVan == null) prevVan = v;
+          if (r.equipment_type === "cargo_van" && prevSprinter == null) prevSprinter = v;
+        }
+      }
+    }
+  }
 
   const { pulse: pulseRow, analystProTip } = await resolvePulseMarketRates(prevVan);
   const { source, ...derivedEquip } = pulseRow;
@@ -925,36 +1192,120 @@ Deno.serve(async (req) => {
     });
   }
 
-  const insertPayload = {
-    source,
-    van_dry: derived.van_dry,
-    reefer: derived.reefer,
-    flatbed: derived.flatbed,
-    box_truck: derived.box_truck,
-    sprinter: derived.sprinter,
-    power_only: derived.power_only,
-    pro_tip,
-  };
+  const asOf = new Date().toISOString();
+  let persisted: Record<string, unknown>;
 
-  const { data: inserted, error: insErr } = await supabase
-    .from("market_rates")
-    .insert(insertPayload)
-    .select("id, as_of")
-    .maybeSingle();
+  // Pulse writes: `market_rates` (wide insert or per-equipment upsert) + `market_history` when present.
+  if (ratesShape === "wide") {
+    const insertPayload = {
+      source,
+      van_dry: derived.van_dry,
+      reefer: derived.reefer,
+      flatbed: derived.flatbed,
+      box_truck: derived.box_truck,
+      sprinter: derived.sprinter,
+      power_only: derived.power_only,
+      pro_tip,
+    };
+    const { data: inserted, error: insErr } = await supabase
+      .from("market_rates")
+      .insert(insertPayload)
+      .select("id, as_of")
+      .maybeSingle();
+    if (insErr) {
+      console.error("[automated-market-pulse] market_rates wide insert failed:", insErr);
+      return json200({
+        ok: false,
+        error: insErr.message || "Database market_rates insert failed",
+      });
+    }
+    if (!inserted) {
+      console.error("[automated-market-pulse] market_rates wide insert returned no row");
+      return json200({ ok: false, error: "Database market_rates insert returned no row" });
+    }
+    persisted = {
+      schema: "wide",
+      snapshot_date: todayUtc,
+      id: (inserted as { id?: string }).id,
+      as_of: (inserted as { as_of?: string }).as_of,
+    };
 
-  if (insErr) {
-    console.error("[automated-market-pulse] market_rates insert failed:", insErr);
-    return json200({
-      ok: false,
-      error: insErr.message || "Database insert failed",
+    if (hasMarketHistory) {
+      const { error: histErr } = await supabase
+        .from("market_history")
+        .upsert(
+          {
+            snapshot_date: todayUtc,
+            source,
+            van_dry: derived.van_dry,
+            reefer: derived.reefer,
+            flatbed: derived.flatbed,
+            box_truck: derived.box_truck,
+            sprinter: derived.sprinter,
+            power_only: derived.power_only,
+            pro_tip,
+          },
+          { onConflict: "snapshot_date" }
+        );
+      if (histErr) {
+        console.error("[automated-market-pulse] market_history upsert failed:", histErr);
+        return json200({
+          ok: false,
+          error: histErr.message || "Database market_history upsert failed",
+        });
+      }
+    }
+  } else {
+    const equipmentUpserts = buildEquipmentRateUpserts({
+      derived,
+      source,
+      pro_tip,
+      asOf,
     });
-  }
-  if (!inserted) {
-    console.error("[automated-market-pulse] market_rates insert returned no row");
-    return json200({ ok: false, error: "Database insert returned no row" });
+    const { error: ratesErr } = await supabase
+      .from("market_rates")
+      .upsert(equipmentUpserts, { onConflict: "equipment_type" });
+    if (ratesErr) {
+      console.error("[automated-market-pulse] market_rates upsert failed:", ratesErr);
+      return json200({
+        ok: false,
+        error: ratesErr.message || "Database market_rates upsert failed",
+      });
+    }
+    persisted = {
+      schema: "equipment",
+      snapshot_date: todayUtc,
+      as_of: asOf,
+      equipment_rows: equipmentUpserts.length,
+    };
+
+    if (hasMarketHistory) {
+      const { error: histErr } = await supabase
+        .from("market_history")
+        .upsert(
+          {
+            snapshot_date: todayUtc,
+            source,
+            van_dry: derived.van_dry,
+            reefer: derived.reefer,
+            flatbed: derived.flatbed,
+            box_truck: derived.box_truck,
+            sprinter: derived.sprinter,
+            power_only: derived.power_only,
+            pro_tip,
+          },
+          { onConflict: "snapshot_date" }
+        );
+      if (histErr) {
+        console.error("[automated-market-pulse] market_history upsert failed:", histErr);
+        return json200({
+          ok: false,
+          error: histErr.message || "Database market_history upsert failed",
+        });
+      }
+    }
   }
 
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let sent = 0;
   const errors: string[] = [];
   let emailRecipientCount = 0;
@@ -964,22 +1315,27 @@ Deno.serve(async (req) => {
 
     if (IS_TEST_MODE) {
       const test = MARKET_PULSE_TEST_EMAIL.trim().toLowerCase();
-      if (!emailRe.test(test)) {
+      if (!EMAIL_RE.test(test)) {
         return json200({ ok: false, error: "MARKET_PULSE_TEST_EMAIL is invalid." });
       }
       recipients = [{ email: test }];
       console.log("[automated-market-pulse] IS_TEST_MODE: Resend recipients =", [test]);
     } else {
-      const { recipients: fromProfiles, error: profErr } =
+      const { recipients: merged, error: profErr } =
         await collectMarketPulseRecipients(supabase);
       if (profErr) {
         return json200({ ok: false, error: profErr });
       }
-      recipients = fromProfiles;
+      recipients = merged;
       console.log(
         "[automated-market-pulse] production recipients (profiles.auth_email):",
         recipients.length
       );
+      if (
+        !recipients.map((r) => r.email.toLowerCase()).includes(CANARY_INFO_EMAIL)
+      ) {
+        console.log("Warning: Info email missing from list");
+      }
     }
     emailRecipientCount = recipients.length;
     const dateLabel = new Date().toLocaleDateString("en-US", {
@@ -999,51 +1355,57 @@ Deno.serve(async (req) => {
     const textPlain =
       `${subject}\n\n` +
       `National averages (benchmarks only—not guarantees on specific loads or lanes):\n` +
-      `Dry van ${derived.van_dry.toFixed(2)}/mi · Reefer ${derived.reefer.toFixed(2)} · Flatbed ${derived.flatbed.toFixed(2)} · Box truck (26ft) ${derived.box_truck.toFixed(2)} · Sprinter/cargo van (expedite) ${derived.sprinter.toFixed(2)}\n\n` +
+      `Dry van ${derived.van_dry.toFixed(2)}/mi · Reefer ${derived.reefer.toFixed(2)} · Flatbed ${derived.flatbed.toFixed(2)} · Box truck (26ft) ${derived.box_truck.toFixed(2)}\n` +
+      `Cargo van (expedite) ${derived.sprinter.toFixed(2)}/mi · Sprinter ${derived.power_only.toFixed(2)}/mi\n\n` +
       `${pro_tip}\n\n${dashboardUrl}\n`;
 
+    console.log("FINAL RECIPIENT LIST:", recipients);
+
     const RESEND_BATCH = 12;
-    for (let i = 0; i < recipients.length; i += RESEND_BATCH) {
-      const chunk = recipients.slice(i, i + RESEND_BATCH);
-      const settled = await Promise.allSettled(
-        chunk.map(async ({ email }) => {
-          const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${resendKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: fromAddr,
-              to: [email],
-              subject,
-              html,
-              text: textPlain,
-            }),
-          });
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`${email}: ${errText.slice(0, 160)}`);
-          }
-        })
-      );
-      for (let k = 0; k < settled.length; k++) {
-        const r = settled[k]!;
-        if (r.status === "fulfilled") sent += 1;
-        else {
-          const email = chunk[k]?.email ?? "?";
-          const msg =
-            r.reason instanceof Error ? r.reason.message : String(r.reason);
-          errors.push(`${email}: ${msg}`);
+    let sendIndex = 0;
+    for (const { email } of recipients) {
+      sendIndex += 1;
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: fromAddr,
+            to: [email],
+            subject,
+            html,
+            text: textPlain,
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error(
+            "[automated-market-pulse] Resend HTTP error for",
+            email,
+            res.status,
+            errText.slice(0, 300)
+          );
+          errors.push(`${email}: HTTP ${res.status} ${errText.slice(0, 160)}`);
+        } else {
+          sent += 1;
         }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[automated-market-pulse] Resend exception for", email, msg);
+        errors.push(`${email}: ${msg.slice(0, 200)}`);
       }
-      await new Promise((r) => setTimeout(r, 150));
+      if (sendIndex % RESEND_BATCH === 0) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
     }
   }
 
   return json200({
     ok: true,
-    inserted: inserted,
+    inserted: persisted,
     van_dry: derived.van_dry,
     source,
     pro_tip_source,
