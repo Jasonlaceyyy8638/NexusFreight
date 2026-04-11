@@ -7,7 +7,7 @@ const corsHeaders: Record<string, string> = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-/** When true, Resend sends only to `MARKET_PULSE_TEST_EMAIL`. Production uses all eligible `profiles.auth_email` rows. */
+/** Production: `false` — Resend to all eligible `profiles.auth_email`. Set `true` to send only to `MARKET_PULSE_TEST_EMAIL`. */
 const IS_TEST_MODE = false;
 /** Quiet mode: pulse email recipient only (no profile blast). */
 const MARKET_PULSE_TEST_EMAIL = "jasonlaceyyy8638@gmail.com";
@@ -180,12 +180,14 @@ async function marketAnalyst(params: {
     const prompt =
       `You are a logistics expert for NexusFreight's morning Market Pulse.\n` +
       `From the DAT Trendlines page text below, infer **national spot linehaul** rates in USD per loaded mile.\n\n` +
-      `**Jason guardrails** (stay inside these relationships; the server will clamp JSON that drifts):\n\n` +
-      `Dry Van: Extract from the DAT/news context when possible; national dry van typically clusters around **$2.30–$2.50**/mi.\n\n` +
-      `Reefer: Must be **$0.40–$0.60 HIGHER** than the Dry Van rate you output.\n\n` +
-      `Flatbed: Must be **$0.20–$0.40 HIGHER** than the Dry Van rate you output.\n\n` +
-      `Box Truck (26ft): Target **$1.60–$2.10**/mi.\n\n` +
-      `Sprinter / Cargo Van (expedite): Target **$1.20–$1.45**/mi. Do **not** scale these off Dry Van; never imply a sprinter rate above **$1.50**/mi.\n\n` +
+      `**Strict value hierarchy (highest $/mi → lowest)** — every number you output must respect this order:\n` +
+      `Reefer > Flatbed > Dry Van > Box Truck (26ft) > Sprinter/Cargo Van.\n\n` +
+      `**Jason guardrails** (the server clamps JSON that drifts):\n\n` +
+      `Dry Van: From DAT/news when possible; national dry van typically **$2.30–$2.50**/mi.\n\n` +
+      `Reefer: **$0.40–$0.60** above the Dry Van rate you output.\n\n` +
+      `Flatbed: **$0.20–$0.40** above the Dry Van rate you output.\n\n` +
+      `Box Truck (26ft): Approximately **$1.70–$2.10**/mi. It must **always** be higher than Sprinter/Cargo Van.\n\n` +
+      `Sprinter / Cargo Van (expedite): **$1.15–$1.45**/mi — not scaled off Dry Van; never above **$1.50**/mi.\n\n` +
       `If the page text clearly states different vetted figures, prefer the text; otherwise apply the guardrails.\n\n` +
       `Reply with JSON only, matching this exact shape (no markdown, no extra keys):\n` +
       `{ "van": number, "reefer": number, "flatbed": number, "sprinter": number, "boxtruck": number, "pro_tip": "string" }\n` +
@@ -211,11 +213,12 @@ async function marketAnalyst(params: {
         sprinter: {
           type: "number",
           description:
-            "Expedite sprinter/cargo van USD/mi; target ~1.20–1.45, never above 1.50.",
+            "Expedite sprinter/cargo van USD/mi; hard band ~1.15–1.45, never above 1.50.",
         },
         boxtruck: {
           type: "number",
-          description: "26ft box truck USD/mi; target ~1.60–2.10.",
+          description:
+            "26ft box truck USD/mi; ~1.70–2.10, always above sprinter, below dry van.",
         },
         pro_tip: {
           type: "string",
@@ -294,16 +297,52 @@ async function marketAnalyst(params: {
 
     if (!Number.isFinite(reefer)) reefer = vanRaw + 0.5;
     if (!Number.isFinite(flatbed)) flatbed = vanRaw + 0.3;
-    if (!Number.isFinite(spr)) spr = 1.325;
-    if (!Number.isFinite(box)) box = 1.85;
+    if (!Number.isFinite(spr)) spr = 1.3;
+    if (!Number.isFinite(box)) box = 1.9;
 
     const VAN_LO = 2.3;
     const VAN_HI = 2.5;
+    const BOX_LO = 1.7;
+    const BOX_HI = 2.1;
+    const SPR_LO = 1.15;
+    const SPR_HI = 1.45;
+    const SPR_HARD_MAX = 1.5;
+
     let van = round4(clamp(vanRaw, VAN_LO, VAN_HI));
     reefer = round4(clamp(reefer, van + 0.4, van + 0.6));
     flatbed = round4(clamp(flatbed, van + 0.2, van + 0.4));
-    box = round4(clamp(box, 1.6, 2.1));
-    spr = round4(Math.min(clamp(spr, 1.2, 1.45), 1.5));
+
+    if (reefer <= flatbed) {
+      reefer = round4(Math.min(van + 0.6, flatbed + 0.12));
+    }
+
+    box = round4(clamp(box, BOX_LO, BOX_HI));
+    spr = round4(Math.min(clamp(spr, SPR_LO, SPR_HI), SPR_HARD_MAX));
+
+    if (box >= van) {
+      box = round4(clamp(van - 0.45, BOX_LO, BOX_HI));
+    }
+
+    if (spr > box) {
+      const sprBefore = spr;
+      spr = round4(box * 0.75);
+      console.log(
+        "[marketAnalyst] sanity: sprinter > boxtruck; sprinter = boxtruck * 0.75",
+        { boxtruck: box, sprinterBefore: sprBefore, sprinterAfter: spr }
+      );
+    }
+    spr = round4(Math.min(clamp(spr, SPR_LO, SPR_HI), SPR_HARD_MAX));
+
+    if (box <= spr) {
+      box = round4(clamp(spr + 0.32, BOX_LO, BOX_HI));
+      if (box >= van) {
+        box = round4(clamp(van - 0.45, BOX_LO, BOX_HI));
+      }
+      console.log("[marketAnalyst] sanity: enforced boxtruck > sprinter", {
+        boxtruck: box,
+        sprinter: spr,
+      });
+    }
 
     console.log(
       "[marketAnalyst] Jason guardrails — final rates (USD/mi):",
