@@ -47,8 +47,11 @@ export function LoginClient() {
         password,
       });
       if (signErr) throw signErr;
-      router.push(nextPath);
+      // Let the browser client persist the session, then refresh RSC *before* navigation
+      // so `/dashboard` server layout sees cookies (avoids “stuck” sign-in / blank shell).
+      await supabase.auth.getSession();
       router.refresh();
+      router.push(nextPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed.");
     } finally {
