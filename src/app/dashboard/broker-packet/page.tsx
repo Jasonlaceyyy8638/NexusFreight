@@ -16,7 +16,7 @@ export default function BrokerSetupPacketPage() {
 
   if (!isCarrierOrg) {
     return (
-      <div className="mx-auto max-w-xl px-6 py-16 text-center">
+      <div className="mx-auto max-w-xl px-4 py-16 text-center sm:px-6">
         <p className="text-lg font-semibold text-white">Broker setup packet</p>
         <p className="mt-2 text-sm text-slate-400">
           Open a carrier from <strong className="text-slate-200">Carriers</strong> and
@@ -29,14 +29,14 @@ export default function BrokerSetupPacketPage() {
 
   if (!carrier) {
     return (
-      <div className="mx-auto max-w-xl px-6 py-16 text-center text-sm text-slate-400">
+      <div className="mx-auto max-w-xl px-4 py-16 text-center text-sm text-slate-400 sm:px-6">
         Add a carrier to your fleet to manage the broker setup packet.
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <BrokerPacketPanel
         carrierId={carrier.id}
         carrierName={carrier.name}

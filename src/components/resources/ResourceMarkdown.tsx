@@ -6,7 +6,7 @@ type Props = {
 };
 
 const mdClass =
-  "max-w-none text-[15px] leading-relaxed text-slate-300 [&_strong]:font-semibold [&_strong]:text-slate-200";
+  "mx-auto w-full max-w-[42rem] text-[15px] leading-relaxed text-slate-300 [&_strong]:font-semibold [&_strong]:text-slate-200";
 
 export function ResourceMarkdown({ markdown }: Props) {
   return (
@@ -30,7 +30,7 @@ export function ResourceMarkdown({ markdown }: Props) {
             </h4>
           ),
           p: ({ children }) => (
-            <p className="mt-4 first:mt-0">{children}</p>
+            <p className="mt-4 max-w-full first:mt-0">{children}</p>
           ),
           ul: ({ children }) => (
             <ul className="mt-4 list-disc space-y-2 pl-5 first:mt-0">{children}</ul>
@@ -64,7 +64,7 @@ export function ResourceMarkdown({ markdown }: Props) {
             );
           },
           pre: ({ children }) => (
-            <pre className="mt-4 overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-4 first:mt-0">
+            <pre className="mt-4 max-w-full overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-4 first:mt-0">
               {children}
             </pre>
           ),
@@ -74,8 +74,21 @@ export function ResourceMarkdown({ markdown }: Props) {
             </blockquote>
           ),
           hr: () => <hr className="my-10 border-white/10" />,
+          img: ({ src, alt }) =>
+            src ? (
+              <span className="my-6 block w-full max-w-full overflow-hidden rounded-lg border border-white/[0.08] bg-slate-900/40">
+                {/* eslint-disable-next-line @next/next/no-img-element -- CMS / arbitrary URLs */}
+                <img
+                  src={src}
+                  alt={alt ?? ""}
+                  className="h-auto w-full max-w-full object-contain"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </span>
+            ) : null,
           table: ({ children }) => (
-            <div className="my-6 overflow-x-auto">
+            <div className="my-6 w-full max-w-full overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[480px] border-collapse text-left text-sm">
                 {children}
               </table>

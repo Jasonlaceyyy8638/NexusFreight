@@ -27,11 +27,15 @@ export const BROKER_DOC_LABELS: Record<BrokerDocCategory, string> = {
   notice_of_assignment: "Notice of Assignment (Factoring)",
 };
 
-/** Categories required before “Send to Broker” is enabled. */
-export const BROKER_SEND_REQUIRED: readonly BrokerDocCategory[] = [
+/** Operating authority, W-9, and COI — required for packet download and broker email. */
+export const BROKER_PACKET_GENERATE_REQUIRED: readonly BrokerDocCategory[] = [
+  "operating_authority",
   "w9",
   "coi",
 ];
+
+/** Same documents as {@link BROKER_PACKET_GENERATE_REQUIRED}. */
+export const BROKER_SEND_REQUIRED = BROKER_PACKET_GENERATE_REQUIRED;
 
 export function isBrokerDocCategory(s: string): s is BrokerDocCategory {
   return (BROKER_DOC_CATEGORIES as readonly string[]).includes(s);

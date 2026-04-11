@@ -52,53 +52,100 @@ export function AdminCompaniesOverview() {
   }
 
   return (
-    <div className="mt-10 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
-      <table className="w-full min-w-[960px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            <th className="px-4 py-3">Company (carrier)</th>
-            <th className="px-4 py-3">Workspace</th>
-            <th className="px-4 py-3">Type</th>
-            <th className="px-4 py-3">Primary admin</th>
-            <th className="px-4 py-3">Staff (memberships)</th>
-            <th className="px-4 py-3">Drivers (memberships)</th>
-            <th className="px-4 py-3">Roster drivers</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr
+    <>
+      <ul className="mt-10 space-y-3 md:hidden" aria-label="Companies overview">
+        {rows.length === 0 ? (
+          <li className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-8 text-center text-sm text-slate-500">
+            No carriers yet.
+          </li>
+        ) : (
+          rows.map((r) => (
+            <li
               key={r.company_id}
-              className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+              className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm"
             >
-              <td className="px-4 py-3 font-medium text-slate-200">
-                {r.carrier_name}
-              </td>
-              <td className="px-4 py-3 text-slate-400">
-                {r.agency_or_fleet_name}
-              </td>
-              <td className="px-4 py-3 text-slate-500">{r.org_type}</td>
-              <td className="px-4 py-3 font-mono text-xs text-slate-400">
-                {r.primary_admin_email ?? "—"}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-slate-300">
-                {r.membership_staff}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-slate-300">
-                {r.membership_drivers}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-slate-300">
-                {r.drivers_roster_count}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-slate-500">
-          No carriers yet.
-        </p>
-      ) : null}
-    </div>
+              <p className="font-semibold text-white">{r.carrier_name}</p>
+              <dl className="mt-3 space-y-2 text-xs text-slate-400">
+                <div>
+                  <dt className="font-semibold uppercase tracking-wide text-slate-500">
+                    Workspace
+                  </dt>
+                  <dd>{r.agency_or_fleet_name}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold uppercase tracking-wide text-slate-500">
+                    Type
+                  </dt>
+                  <dd>{r.org_type}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold uppercase tracking-wide text-slate-500">
+                    Primary admin
+                  </dt>
+                  <dd className="break-all font-mono">{r.primary_admin_email ?? "—"}</dd>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums text-slate-300">
+                  <span>Staff: {r.membership_staff}</span>
+                  <span>Drivers (memberships): {r.membership_drivers}</span>
+                  <span>Roster: {r.drivers_roster_count}</span>
+                </div>
+              </dl>
+            </li>
+          ))
+        )}
+      </ul>
+
+      <div className="mt-10 hidden rounded-xl border border-slate-800 bg-slate-900/50 md:block">
+        {rows.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-slate-500">
+            No carriers yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto overscroll-x-contain">
+            <table className="w-full min-w-[960px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-4 py-3">Company (carrier)</th>
+                  <th className="px-4 py-3">Workspace</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Primary admin</th>
+                  <th className="px-4 py-3">Staff (memberships)</th>
+                  <th className="px-4 py-3">Drivers (memberships)</th>
+                  <th className="px-4 py-3">Roster drivers</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr
+                    key={r.company_id}
+                    className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-200">
+                      {r.carrier_name}
+                    </td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {r.agency_or_fleet_name}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{r.org_type}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-400">
+                      {r.primary_admin_email ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-slate-300">
+                      {r.membership_staff}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-slate-300">
+                      {r.membership_drivers}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-slate-300">
+                      {r.drivers_roster_count}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

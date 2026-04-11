@@ -210,7 +210,7 @@ export function NexusControlClient() {
   return (
     <div className="min-h-screen px-4 py-8 text-slate-100 sm:px-8">
       <div className="mx-auto max-w-[1600px]">
-        <header className="flex flex-col gap-4 border-b border-slate-800 pb-6 sm:flex-row sm:items-start sm:justify-between">
+        <header className="flex flex-col gap-4 border-b border-slate-800 pb-6 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
               Internal
@@ -237,7 +237,7 @@ export function NexusControlClient() {
               </Link>
             </p>
           </div>
-          <div className="flex max-w-md shrink-0 flex-col gap-2 sm:items-end">
+          <div className="flex max-w-md shrink-0 flex-col gap-2 md:items-end">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Product
             </p>
@@ -313,11 +313,11 @@ export function NexusControlClient() {
           </div>
         </header>
 
-        <div className="mt-8 flex flex-wrap gap-2">
+        <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={() => setMainTab("companies")}
-            className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
               mainTab === "companies"
                 ? "bg-slate-100 text-slate-900"
                 : "border border-slate-700 text-slate-300 hover:bg-slate-800"
@@ -328,7 +328,7 @@ export function NexusControlClient() {
           <button
             type="button"
             onClick={() => setMainTab("organizations")}
-            className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
               mainTab === "organizations"
                 ? "bg-slate-100 text-slate-900"
                 : "border border-slate-700 text-slate-300 hover:bg-slate-800"
@@ -339,7 +339,7 @@ export function NexusControlClient() {
           <button
             type="button"
             onClick={() => setMainTab("audit")}
-            className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
               mainTab === "audit"
                 ? "bg-slate-100 text-slate-900"
                 : "border border-slate-700 text-slate-300 hover:bg-slate-800"
@@ -350,7 +350,7 @@ export function NexusControlClient() {
           <button
             type="button"
             onClick={() => setMainTab("billing")}
-            className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
               mainTab === "billing"
                 ? "bg-slate-100 text-slate-900"
                 : "border border-slate-700 text-slate-300 hover:bg-slate-800"
@@ -412,7 +412,7 @@ export function NexusControlClient() {
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="mt-8 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
+          <div className="mt-8 overflow-x-auto overscroll-x-contain rounded-xl border border-slate-800 bg-slate-900/50">
             <table className="w-full min-w-[1000px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">

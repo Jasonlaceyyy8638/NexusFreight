@@ -87,7 +87,7 @@ export function MarketingSiteHeader({ scrollDriven = true }: Props) {
       <header
         className={`sticky top-10 z-50 border-b transition-[background-color,box-shadow,border-color,backdrop-filter] duration-300 ${headerClass}`}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-6 py-3.5 font-[family-name:var(--font-inter)] sm:py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 font-[family-name:var(--font-inter)] sm:px-6 sm:py-4">
           <Link
             href="/"
             className="shrink-0 rounded-xl outline-none ring-offset-2 ring-offset-[#0D0E10] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50"

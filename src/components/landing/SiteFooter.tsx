@@ -61,7 +61,7 @@ function LinkItem({
 
 export function SiteFooter() {
   return (
-    <footer className="mt-auto border-t border-white/[0.06] bg-[#1A1C1E] px-6 py-20 sm:py-24">
+    <footer className="mt-auto border-t border-white/[0.06] bg-[#1A1C1E] px-4 pb-[max(5rem,calc(env(safe-area-inset-bottom,0px)+3.5rem))] pt-20 sm:px-6 sm:pb-[max(6rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] sm:pt-24">
       <div className="mx-auto max-w-6xl">
         <div className="mb-14">
           <Link href="/" className="inline-flex rounded-xl outline-none ring-offset-2 ring-offset-[#1A1C1E] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#3B82F6]/50">

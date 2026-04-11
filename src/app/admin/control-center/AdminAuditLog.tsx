@@ -52,50 +52,85 @@ export function AdminAuditLog() {
   }
 
   return (
-    <div className="mt-10 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
-      <table className="w-full min-w-[900px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            <th className="px-4 py-3">When</th>
-            <th className="px-4 py-3">Event</th>
-            <th className="px-4 py-3">Actor</th>
-            <th className="px-4 py-3">Org</th>
-            <th className="px-4 py-3">Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr
+    <>
+      <ul className="mt-10 space-y-3 md:hidden" aria-label="Audit log">
+        {rows.length === 0 ? (
+          <li className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-8 text-center text-sm text-slate-500">
+            No audit events yet. Loads (after migration), MC lookups (signed-in),
+            and driver invites appear here.
+          </li>
+        ) : (
+          rows.map((r) => (
+            <li
               key={r.id}
-              className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+              className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-xs"
             >
-              <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">
+              <p className="text-slate-400">
                 {new Date(r.created_at).toLocaleString()}
-              </td>
-              <td className="px-4 py-3 font-mono text-xs text-sky-300">
-                {r.event_type}
-              </td>
-              <td className="max-w-[140px] truncate px-4 py-3 font-mono text-[10px] text-slate-500">
-                {r.actor_user_id ?? "—"}
-              </td>
-              <td className="max-w-[120px] truncate px-4 py-3 font-mono text-[10px] text-slate-500">
-                {r.org_id ?? "—"}
-              </td>
-              <td className="max-w-xl px-4 py-3 font-mono text-[10px] text-slate-400">
-                <pre className="whitespace-pre-wrap break-all">
-                  {JSON.stringify(r.metadata ?? {}, null, 0)}
-                </pre>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-slate-500">
-          No audit events yet. Loads (after migration), MC lookups (signed-in), and
-          driver invites appear here.
-        </p>
-      ) : null}
-    </div>
+              </p>
+              <p className="mt-1 font-mono text-sm text-sky-300">{r.event_type}</p>
+              <p className="mt-2 break-all font-mono text-[10px] text-slate-500">
+                Actor: {r.actor_user_id ?? "—"}
+              </p>
+              <p className="mt-1 break-all font-mono text-[10px] text-slate-500">
+                Org: {r.org_id ?? "—"}
+              </p>
+              <pre className="mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap break-all rounded border border-slate-800 bg-slate-950/80 p-2 font-mono text-[10px] text-slate-400">
+                {JSON.stringify(r.metadata ?? {}, null, 0)}
+              </pre>
+            </li>
+          ))
+        )}
+      </ul>
+
+      <div className="mt-10 hidden rounded-xl border border-slate-800 bg-slate-900/50 md:block">
+        {rows.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-slate-500">
+            No audit events yet. Loads (after migration), MC lookups (signed-in), and
+            driver invites appear here.
+          </p>
+        ) : (
+          <div className="overflow-x-auto overscroll-x-contain">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-4 py-3">When</th>
+                  <th className="px-4 py-3">Event</th>
+                  <th className="px-4 py-3">Actor</th>
+                  <th className="px-4 py-3">Org</th>
+                  <th className="px-4 py-3">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr
+                    key={r.id}
+                    className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">
+                      {new Date(r.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-sky-300">
+                      {r.event_type}
+                    </td>
+                    <td className="max-w-[140px] truncate px-4 py-3 font-mono text-[10px] text-slate-500">
+                      {r.actor_user_id ?? "—"}
+                    </td>
+                    <td className="max-w-[120px] truncate px-4 py-3 font-mono text-[10px] text-slate-500">
+                      {r.org_id ?? "—"}
+                    </td>
+                    <td className="max-w-xl px-4 py-3 font-mono text-[10px] text-slate-400">
+                      <pre className="whitespace-pre-wrap break-all">
+                        {JSON.stringify(r.metadata ?? {}, null, 0)}
+                      </pre>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

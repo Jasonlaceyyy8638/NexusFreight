@@ -1,8 +1,10 @@
 import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrokerDocCategory } from "@/lib/broker-packet/categories";
-import { BROKER_DOC_CATEGORIES } from "@/lib/broker-packet/categories";
 import { canSendToBroker } from "@/lib/broker-packet/completeness";
+import { brokerPacketPdfFilename } from "@/lib/broker-packet/broker-packet-filename";
+import { getDispatcherContactForBrokerPacket } from "@/lib/broker-packet/dispatcher-contact";
+import { prepareBrokerPacketStitchInputs } from "@/lib/broker-packet/prepare-stitch-inputs";
 import { stitchBrokerPacketPdf } from "@/lib/broker-packet/stitch-pdf";
 import { getCarrierIfMember } from "@/lib/broker-packet/verify-access";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
@@ -125,30 +127,6 @@ function buildEmailText(params: {
   return lines.join("\n");
 }
 
-async function getDispatcherContact(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<{ name: string; email: string }> {
-  const { data: auth } = await supabase.auth.getUser();
-  const email = auth.user?.email?.trim() ?? "";
-
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const raw = (prof as { full_name?: string | null } | null)?.full_name?.trim();
-  const name =
-    raw && raw.length > 0
-      ? raw
-      : email
-        ? email.split("@")[0].replace(/[._]/g, " ")
-        : "Dispatcher";
-
-  return { name, email: email || "—" };
-}
-
 export type SendBrokerPacketResult =
   | { ok: true }
   | { error: string; status: number };
@@ -186,7 +164,8 @@ export async function sendBrokerPacketToBroker(
   );
   if (!canSendToBroker(present)) {
     return {
-      error: "Missing required documents (W-9 and COI).",
+      error:
+        "Missing required documents (operating authority, W-9, and COI).",
       status: 400,
     };
   }
@@ -196,39 +175,28 @@ export async function sendBrokerPacketToBroker(
     return { error: "Service role not configured.", status: 503 };
   }
 
-  const inputs: {
-    category: BrokerDocCategory;
-    bytes: Buffer;
-    filename: string;
-  }[] = [];
+  const rowList = (rows ?? []) as {
+    doc_category: BrokerDocCategory;
+    storage_path: string;
+    original_filename: string | null;
+  }[];
 
-  const order = new Map(BROKER_DOC_CATEGORIES.map((c, i) => [c, i] as const));
+  const inputs = await prepareBrokerPacketStitchInputs(admin, rowList);
 
-  const sorted = [...(rows ?? [])].sort(
-    (a, b) =>
-      (order.get((a as { doc_category: BrokerDocCategory }).doc_category) ?? 99) -
-      (order.get((b as { doc_category: BrokerDocCategory }).doc_category) ?? 99)
-  );
+  const dispatcher = await getDispatcherContactForBrokerPacket(supabase, userId);
+  const cover = {
+    carrierName: access.name,
+    mcNumber: access.mc_number,
+    dotNumber: access.dot_number,
+    dispatcherName: dispatcher.name,
+    dispatcherPhone: dispatcher.phone,
+    dispatcherEmail: dispatcher.email,
+  };
 
-  for (const r of sorted) {
-    const doc_category = (r as { doc_category: BrokerDocCategory }).doc_category;
-    const storage_path = (r as { storage_path: string }).storage_path;
-    const original_filename =
-      (r as { original_filename: string | null }).original_filename ?? "file.pdf";
-    const { data: file, error: dlErr } = await admin.storage
-      .from("broker_packet_docs")
-      .download(storage_path);
-    if (dlErr || !file) continue;
-    const buf = Buffer.from(await file.arrayBuffer());
-    inputs.push({ category: doc_category, bytes: buf, filename: original_filename });
-  }
-
-  const pdfBytes = await stitchBrokerPacketPdf(inputs);
-  const attachName = `Broker-Setup-Packet-${access.name.replace(/[^a-z0-9]+/gi, "-").slice(0, 40)}.pdf`;
+  const pdfBytes = await stitchBrokerPacketPdf(inputs, cover);
+  const attachName = brokerPacketPdfFilename(access.name, access.mc_number);
   const mcDisplay = access.mc_number?.trim() || "N/A";
   const subject = `Carrier Setup Packet: ${access.name} (MC# ${mcDisplay})`;
-
-  const dispatcher = await getDispatcherContact(supabase, userId);
   const includeNoticeOfAssignment = present.has("notice_of_assignment");
 
   const templateBody = {

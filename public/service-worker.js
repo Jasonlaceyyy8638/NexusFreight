@@ -1,7 +1,11 @@
 /* NexusFreight PWA — basic offline + instant repeat loads (static assets). */
-const CACHE = "nexusfreight-pwa-v1";
+const CACHE = "nexusfreight-pwa-v2";
 const PRECACHE_URLS = [
   "/",
+  "/manifest.webmanifest",
+  "/icon-192x192.png",
+  "/icon-512x512.png",
+  "/apple-touch-icon.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/nexusfreight-logo-v2.svg",
@@ -51,6 +55,10 @@ self.addEventListener("fetch", (event) => {
     url.origin === self.location.origin &&
     (url.pathname.startsWith("/_next/static/") ||
       url.pathname.startsWith("/icons/") ||
+      url.pathname === "/icon-192x192.png" ||
+      url.pathname === "/icon-512x512.png" ||
+      url.pathname === "/apple-touch-icon.png" ||
+      url.pathname.endsWith(".webmanifest") ||
       url.pathname.endsWith(".svg") ||
       url.pathname.endsWith(".woff2"))
   ) {

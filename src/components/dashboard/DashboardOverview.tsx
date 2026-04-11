@@ -88,7 +88,7 @@ export function DashboardOverview() {
 
   if (isCarrierOrg) {
     return (
-      <div className="mx-auto max-w-6xl space-y-10 px-6 py-10">
+      <div className="mx-auto max-w-6xl space-y-10 px-4 py-10 sm:px-6">
         <header>
           <h1 className="text-xl font-semibold tracking-tight text-white">
             Carrier Dashboard - {companyName}
@@ -167,28 +167,28 @@ export function DashboardOverview() {
           />
         </section>
 
-        <section className="flex flex-wrap gap-3">
+        <section className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Link
             href="/dashboard/fleet"
-            className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#007bff] px-4 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
           >
             Fleet &amp; maintenance
           </Link>
           <Link
             href="/dashboard/loads"
-            className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-medium text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10"
           >
             Loads
           </Link>
           <Link
             href="/dashboard/map"
-            className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 hover:border-white/25 hover:bg-white/10"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-medium text-slate-200 hover:border-white/25 hover:bg-white/10"
           >
             Live map
           </Link>
           <Link
             href="/dashboard/documents"
-            className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 hover:border-white/25 hover:bg-white/10"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-medium text-slate-200 hover:border-white/25 hover:bg-white/10"
           >
             Compliance &amp; documents
           </Link>
@@ -213,21 +213,25 @@ export function DashboardOverview() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-10 px-6 py-10">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Overview
-        </p>
-        <h1 className="text-xl font-semibold tracking-tight text-white">
-          Operations snapshot
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Key metrics for the last week. Use the sidebar for map, loads, fleet,
-          and revenue &amp; settlements.
-        </p>
-      </header>
+    <div className="mx-auto max-w-6xl space-y-10 px-4 py-10 sm:px-6">
+      <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-10">
+        <header className="min-w-0 shrink-0 md:max-w-xs lg:max-w-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Overview
+          </p>
+          <h1 className="text-xl font-semibold tracking-tight text-white">
+            Operations snapshot
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Key metrics for the last week. Use the sidebar for map, loads, fleet,
+            and revenue &amp; settlements.
+          </p>
+        </header>
 
-      <GettingStartedLaunchpad />
+        <div className="min-w-0 flex-1">
+          <GettingStartedLaunchpad />
+        </div>
+      </div>
 
       <section className="grid gap-4 sm:grid-cols-3">
         {fin ? (
@@ -251,22 +255,22 @@ export function DashboardOverview() {
         />
       </section>
 
-      <section className="flex flex-wrap gap-3">
+      <section className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Link
           href="/dashboard/loads"
-          className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#007bff] px-4 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
         >
           Manage loads
         </Link>
         <Link
           href="/dashboard/map"
-          className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10"
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-medium text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10"
         >
           Open live map
         </Link>
         <Link
           href="/dashboard/carriers"
-          className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 hover:border-white/25 hover:bg-white/10"
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-medium text-slate-200 hover:border-white/25 hover:bg-white/10"
         >
           Carriers
         </Link>

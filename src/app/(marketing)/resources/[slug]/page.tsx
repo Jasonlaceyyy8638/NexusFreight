@@ -62,7 +62,7 @@ export default async function ResourceArticlePage({ params }: PageProps) {
       : null;
 
   return (
-    <article className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 pt-6 sm:pb-24 sm:pt-8">
+    <article className="mx-auto w-full max-w-6xl flex-1 px-4 pb-20 pt-6 sm:px-6 sm:pb-24 sm:pt-8">
       <ResourceViewBeacon slug={resource.slug} />
       <nav className="text-sm text-slate-500">
         <Link
@@ -97,12 +97,12 @@ export default async function ResourceArticlePage({ params }: PageProps) {
           </header>
 
           {resource.image_url ? (
-            <div className="relative mt-10 overflow-hidden rounded-xl border border-white/[0.08] bg-slate-900/50">
+            <div className="relative mt-10 w-full max-w-full overflow-hidden rounded-xl border border-white/[0.08] bg-slate-900/50">
               {/* eslint-disable-next-line @next/next/no-img-element -- CMS URLs from various hosts */}
               <img
                 src={resource.image_url}
                 alt=""
-                className="max-h-[420px] w-full object-cover"
+                className="h-auto max-h-[min(420px,70vh)] w-full max-w-full object-contain"
               />
             </div>
           ) : null}

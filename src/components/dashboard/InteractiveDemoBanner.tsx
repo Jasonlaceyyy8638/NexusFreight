@@ -12,7 +12,7 @@ export function InteractiveDemoBanner({
   const label = variant === "carrier" ? "Carrier" : "Dispatcher";
 
   return (
-    <div className="sticky top-10 z-[45] border-b border-[#007bff]/25 bg-[#0a1628]/95 backdrop-blur-md">
+    <div className="sticky top-11 z-[45] border-b border-[#007bff]/25 bg-[#0a1628]/95 backdrop-blur-md">
       <div className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
         <p className="text-center text-[11px] font-semibold leading-snug text-slate-200 sm:text-left sm:text-xs">
           <span className="rounded border border-[#007bff]/40 bg-[#007bff]/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[#3395ff]">

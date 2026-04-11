@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import type { BrokerDocCategory } from "@/lib/broker-packet/categories";
-import { BROKER_DOC_CATEGORIES } from "@/lib/broker-packet/categories";
+import {
+  BROKER_PACKET_GENERATE_REQUIRED,
+  type BrokerDocCategory,
+} from "@/lib/broker-packet/categories";
+import { brokerPacketPdfFilename } from "@/lib/broker-packet/broker-packet-filename";
+import { getDispatcherContactForBrokerPacket } from "@/lib/broker-packet/dispatcher-contact";
+import { prepareBrokerPacketStitchInputs } from "@/lib/broker-packet/prepare-stitch-inputs";
 import { stitchBrokerPacketPdf } from "@/lib/broker-packet/stitch-pdf";
 import { getCarrierIfMember } from "@/lib/broker-packet/verify-access";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -46,44 +51,27 @@ export async function GET(
     );
   }
 
-  const inputs: {
-    category: BrokerDocCategory;
-    bytes: Buffer;
-    filename: string;
-  }[] = [];
+  const rowList = (rows ?? []) as {
+    doc_category: BrokerDocCategory;
+    storage_path: string;
+    original_filename: string | null;
+  }[];
 
-  const order = new Map(
-    BROKER_DOC_CATEGORIES.map((c, i) => [c, i] as const)
-  );
+  const inputs = await prepareBrokerPacketStitchInputs(admin, rowList);
 
-  const sorted = [...(rows ?? [])].sort(
-    (a, b) =>
-      (order.get((a as { doc_category: BrokerDocCategory }).doc_category) ??
-        99) -
-      (order.get((b as { doc_category: BrokerDocCategory }).doc_category) ??
-        99)
-  );
+  const dispatcher = await getDispatcherContactForBrokerPacket(supabase, user.id);
+  const cover = {
+    carrierName: access.name,
+    mcNumber: access.mc_number,
+    dotNumber: access.dot_number,
+    dispatcherName: dispatcher.name,
+    dispatcherPhone: dispatcher.phone,
+    dispatcherEmail: dispatcher.email,
+  };
 
-  for (const r of sorted) {
-    const doc_category = (r as { doc_category: BrokerDocCategory }).doc_category;
-    const storage_path = (r as { storage_path: string }).storage_path;
-    const original_filename =
-      (r as { original_filename: string | null }).original_filename ?? "file.pdf";
-    const { data: file, error: dlErr } = await admin.storage
-      .from("broker_packet_docs")
-      .download(storage_path);
-    if (dlErr || !file) continue;
-    const buf = Buffer.from(await file.arrayBuffer());
-    inputs.push({
-      category: doc_category,
-      bytes: buf,
-      filename: original_filename,
-    });
-  }
+  const pdfBytes = await stitchBrokerPacketPdf(inputs, cover);
 
-  const pdfBytes = await stitchBrokerPacketPdf(inputs);
-
-  const filename = `Broker-Setup-Packet-${access.name.replace(/[^a-z0-9]+/gi, "-").slice(0, 40)}.pdf`;
+  const filename = brokerPacketPdfFilename(access.name, access.mc_number);
 
   return new NextResponse(Buffer.from(pdfBytes), {
     status: 200,

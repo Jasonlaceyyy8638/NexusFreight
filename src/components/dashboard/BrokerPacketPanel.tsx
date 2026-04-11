@@ -18,7 +18,13 @@ import {
   BROKER_DOC_LABELS,
   type BrokerDocCategory,
 } from "@/lib/broker-packet/categories";
-import { canSendToBroker, completenessPercent } from "@/lib/broker-packet/completeness";
+import { brokerPacketPdfFilename } from "@/lib/broker-packet/broker-packet-filename";
+import {
+  brokerPacketDownloadBlockedMessage,
+  canSendToBroker,
+  completenessPercent,
+  firstMissingBrokerPacketForDownload,
+} from "@/lib/broker-packet/completeness";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { mergeUserOnboardingWithWorkspace } from "@/lib/user-onboarding/sync";
 
@@ -32,6 +38,25 @@ type DocRow = {
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 180);
+}
+
+function parseContentDispositionFilename(
+  header: string | null
+): string | null {
+  if (!header) return null;
+  const utf8 = header.match(/filename\*=UTF-8''([^;\s]+)/i);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1].trim());
+    } catch {
+      return null;
+    }
+  }
+  const quoted = header.match(/filename="([^"]+)"/i);
+  if (quoted?.[1]) return quoted[1].trim();
+  const loose = header.match(/filename=([^;\s]+)/i);
+  if (loose?.[1]) return loose[1].trim().replace(/^["']|["']$/g, "");
+  return null;
 }
 
 function coiExpiryTone(
@@ -71,6 +96,8 @@ export function BrokerPacketPanel({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [busyCat, setBusyCat] = useState<BrokerDocCategory | null>(null);
+  const [professionalDownloadBusy, setProfessionalDownloadBusy] =
+    useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendEmail, setSendEmail] = useState("");
   const [sendPhase, setSendPhase] = useState<SendModalPhase>("form");
@@ -223,8 +250,60 @@ export function BrokerPacketPanel({
     }
   };
 
-  const downloadPacket = () => {
-    window.open(`/api/broker-packet/${carrierId}/stitch`, "_blank");
+  const downloadProfessionalPacket = async () => {
+    if (interactiveDemo) {
+      openDemoAccountGate();
+      return;
+    }
+    const missing = firstMissingBrokerPacketForDownload(present);
+    if (missing) {
+      toast.error(brokerPacketDownloadBlockedMessage(missing));
+      return;
+    }
+    setProfessionalDownloadBusy(true);
+    try {
+      const res = await fetch(`/api/broker-packet/${carrierId}/stitch`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        let msg = res.statusText;
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("application/json")) {
+          try {
+            const j = (await res.json()) as { missing?: BrokerDocCategory };
+            if (j.missing) {
+              msg = brokerPacketDownloadBlockedMessage(j.missing);
+            }
+          } catch {
+            /* keep msg */
+          }
+        } else {
+          const t = await res.text().catch(() => "");
+          if (t) msg = t;
+        }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const fromHeader = parseContentDispositionFilename(
+        res.headers.get("Content-Disposition")
+      );
+      const fallback = brokerPacketPdfFilename(carrierName, mcNumber ?? null);
+      const fname = fromHeader || fallback;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fname;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 2500);
+      toast.success("Professional packet downloaded.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed.");
+    } finally {
+      setProfessionalDownloadBusy(false);
+    }
   };
 
   const sendPacket = async () => {
@@ -274,7 +353,7 @@ export function BrokerPacketPanel({
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="flex items-center gap-2 text-emerald-400/90">
             <Shield className="h-5 w-5" aria-hidden />
@@ -288,28 +367,35 @@ export function BrokerPacketPanel({
             dates are scanned for expiration when possible.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={() => void load()}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
+            className="inline-flex min-h-12 min-w-[44px] touch-manipulation items-center justify-center gap-2 rounded-lg border border-white/15 px-4 text-sm font-semibold text-slate-200 hover:bg-white/5"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
           </button>
           <button
             type="button"
-            onClick={downloadPacket}
-            className="inline-flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-950/40 px-3 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-950/70"
+            disabled={professionalDownloadBusy}
+            onClick={() => void downloadProfessionalPacket()}
+            className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-950/40 px-3 text-sm font-semibold text-sky-100 hover:bg-sky-950/70 disabled:cursor-wait disabled:opacity-80 sm:min-w-[200px] sm:w-auto"
           >
-            <FileText className="h-4 w-4" />
-            Download combined PDF
+            {professionalDownloadBusy ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            ) : (
+              <FileText className="h-4 w-4 shrink-0" aria-hidden />
+            )}
+            {professionalDownloadBusy
+              ? "Processing..."
+              : "Download Professional Packet"}
           </button>
           <span
             title={
               sendOk
                 ? undefined
-                : "Missing required documents (W-9 and COI)."
+                : "Missing required documents (operating authority, W-9, and COI)."
             }
             className="inline-flex"
           >
@@ -321,7 +407,7 @@ export function BrokerPacketPanel({
                 setSendPhase("form");
                 setSendOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#007bff] px-3 py-2 text-sm font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.25)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-lg bg-[#007bff] px-4 text-sm font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.25)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
             >
               <Mail className="h-4 w-4" />
               Send to broker
@@ -345,7 +431,7 @@ export function BrokerPacketPanel({
         </div>
         {!sendOk ? (
           <p className="mt-2 text-xs text-amber-200/90">
-            Add W-9 and COI to enable emailing the packet.
+            Add operating authority, W-9, and COI to enable download and email.
           </p>
         ) : null}
       </div>
@@ -519,18 +605,18 @@ export function BrokerPacketPanel({
                     {sendMsg}
                   </p>
                 ) : null}
-                <div className="mt-6 flex justify-end gap-2">
+                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={closeSendModal}
-                    className="rounded-md border border-white/15 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/5"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 px-4 text-sm font-semibold text-slate-300 hover:bg-white/5"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={() => void sendPacket()}
-                    className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#007bff] px-4 text-sm font-semibold text-white hover:opacity-90"
                   >
                     Send email
                   </button>

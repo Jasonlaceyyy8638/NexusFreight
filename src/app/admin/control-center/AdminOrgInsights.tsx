@@ -191,11 +191,11 @@ export function AdminOrgInsights() {
         </section>
       )}
 
-      <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-4">
+      <div className="flex flex-col gap-2 border-b border-slate-800 pb-4 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={() => setSubTab("dispatchers")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+          className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
             subTab === "dispatchers"
               ? "bg-slate-100 text-slate-900"
               : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
@@ -206,7 +206,7 @@ export function AdminOrgInsights() {
         <button
           type="button"
           onClick={() => setSubTab("fleets")}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+          className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
             subTab === "fleets"
               ? "bg-slate-100 text-slate-900"
               : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
@@ -217,111 +217,180 @@ export function AdminOrgInsights() {
       </div>
 
       {subTab === "dispatchers" ? (
-      <section className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              <th className="px-4 py-3">Dispatcher</th>
-              <th className="px-4 py-3">Agency</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Contract carriers</th>
-              <th className="px-4 py-3 w-44">Carrier Shield</th>
-            </tr>
-          </thead>
-          <tbody>
+        <>
+          <ul className="mt-6 space-y-3 md:hidden" aria-label="Dispatcher organizations">
             {dispatchers.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-slate-500"
-                >
-                  No agency organizations yet.
-                </td>
-              </tr>
+              <li className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-8 text-center text-sm text-slate-500">
+                No agency organizations yet.
+              </li>
             ) : (
               dispatchers.map((row) => (
-                <tr
+                <li
                   key={row.org_id}
-                  className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+                  className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm"
                 >
-                  <td className="px-4 py-3 font-medium text-slate-200">
+                  <p className="font-semibold text-white">
                     {row.primary_name?.trim() || "—"}
-                  </td>
-                  <td className="px-4 py-3 text-slate-400">
-                    {row.agency_company_name}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">
+                  </p>
+                  <p className="mt-1 text-slate-400">{row.agency_company_name}</p>
+                  <p className="mt-2 break-all text-xs text-slate-500">
                     {row.primary_email || "—"}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-slate-300">
-                    {row.contract_carrier_count}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => void openShield(row)}
-                      className="rounded-md border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
-                    >
-                      View logs
-                    </button>
-                  </td>
-                </tr>
+                  </p>
+                  <p className="mt-2 tabular-nums text-slate-300">
+                    Contract carriers: {row.contract_carrier_count}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void openShield(row)}
+                    className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-600 bg-slate-800 px-3 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+                  >
+                    View logs
+                  </button>
+                </li>
               ))
             )}
-          </tbody>
-        </table>
-      </section>
+          </ul>
+          <section className="mt-6 hidden rounded-xl border border-slate-800 bg-slate-900/50 md:block">
+            <div className="overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    <th className="px-4 py-3">Dispatcher</th>
+                    <th className="px-4 py-3">Agency</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Contract carriers</th>
+                    <th className="px-4 py-3 w-44">Carrier Shield</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dispatchers.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-4 py-8 text-center text-slate-500"
+                      >
+                        No agency organizations yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    dispatchers.map((row) => (
+                      <tr
+                        key={row.org_id}
+                        className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+                      >
+                        <td className="px-4 py-3 font-medium text-slate-200">
+                          {row.primary_name?.trim() || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">
+                          {row.agency_company_name}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {row.primary_email || "—"}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-slate-300">
+                          {row.contract_carrier_count}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => void openShield(row)}
+                            className="rounded-md border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+                          >
+                            View logs
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
       ) : (
-      <section className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
-        <table className="w-full min-w-[640px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              <th className="px-4 py-3">Company</th>
-              <th className="px-4 py-3">MC number</th>
-              <th className="px-4 py-3">Internal drivers</th>
-              <th className="px-4 py-3 w-44">Load history</th>
-            </tr>
-          </thead>
-          <tbody>
+        <>
+          <ul className="mt-6 space-y-3 md:hidden" aria-label="Fleet organizations">
             {fleets.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-8 text-center text-slate-500"
-                >
-                  No carrier (fleet) organizations yet.
-                </td>
-              </tr>
+              <li className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-8 text-center text-sm text-slate-500">
+                No carrier (fleet) organizations yet.
+              </li>
             ) : (
               fleets.map((row) => (
-                <tr
+                <li
                   key={row.org_id}
-                  className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+                  className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm"
                 >
-                  <td className="px-4 py-3 font-medium text-slate-200">
-                    {row.company_name}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">
-                    {row.mc_number || "—"}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-slate-300">
-                    {row.internal_driver_count}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => void openFleetLoads(row)}
-                      className="rounded-md border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
-                    >
-                      View loads
-                    </button>
-                  </td>
-                </tr>
+                  <p className="font-semibold text-white">{row.company_name}</p>
+                  <p className="mt-1 font-mono text-xs text-slate-500">
+                    MC {row.mc_number || "—"}
+                  </p>
+                  <p className="mt-2 tabular-nums text-slate-300">
+                    Internal drivers: {row.internal_driver_count}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void openFleetLoads(row)}
+                    className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-600 bg-slate-800 px-3 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+                  >
+                    View loads
+                  </button>
+                </li>
               ))
             )}
-          </tbody>
-        </table>
-      </section>
+          </ul>
+          <section className="mt-6 hidden rounded-xl border border-slate-800 bg-slate-900/50 md:block">
+            <div className="overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    <th className="px-4 py-3">Company</th>
+                    <th className="px-4 py-3">MC number</th>
+                    <th className="px-4 py-3">Internal drivers</th>
+                    <th className="px-4 py-3 w-44">Load history</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fleets.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-8 text-center text-slate-500"
+                      >
+                        No carrier (fleet) organizations yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    fleets.map((row) => (
+                      <tr
+                        key={row.org_id}
+                        className="border-b border-slate-800/80 last:border-0 hover:bg-slate-900/80"
+                      >
+                        <td className="px-4 py-3 font-medium text-slate-200">
+                          {row.company_name}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                          {row.mc_number || "—"}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-slate-300">
+                          {row.internal_driver_count}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => void openFleetLoads(row)}
+                            className="rounded-md border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+                          >
+                            View loads
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
       )}
 
       {shieldOrg && (

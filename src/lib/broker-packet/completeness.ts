@@ -17,3 +17,28 @@ export function completenessPercent(present: Set<BrokerDocCategory>): number {
 export function canSendToBroker(present: Set<BrokerDocCategory>): boolean {
   return BROKER_SEND_REQUIRED.every((c) => present.has(c));
 }
+
+/** First missing category for packet download / stitch, in canonical order. */
+export function firstMissingBrokerPacketForDownload(
+  present: Set<BrokerDocCategory>
+): BrokerDocCategory | null {
+  for (const c of BROKER_SEND_REQUIRED) {
+    if (!present.has(c)) return c;
+  }
+  return null;
+}
+
+export function brokerPacketDownloadBlockedMessage(
+  missing: BrokerDocCategory
+): string {
+  switch (missing) {
+    case "coi":
+      return "Wait! You need to upload the Insurance Certificate before generating a packet.";
+    case "w9":
+      return "Wait! You need to upload your W-9 before generating a packet.";
+    case "operating_authority":
+      return "Wait! You need to upload your Operating Authority (MC/DOT letter) before generating a packet.";
+    default:
+      return "Wait! You need to upload all required documents before generating a packet.";
+  }
+}

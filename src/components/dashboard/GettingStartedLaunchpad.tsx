@@ -147,13 +147,13 @@ export function GettingStartedLaunchpad() {
 
   if (allDone) {
     return (
-      <section className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-white/[0.04] p-6 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.65)] backdrop-blur-xl ring-1 ring-white/[0.08]">
+      <section className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-white/[0.04] p-4 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.65)] backdrop-blur-xl ring-1 ring-white/[0.08] sm:p-6">
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-cyan-500/5"
           aria-hidden
         />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/35 bg-emerald-500/15 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.25)]">
               <Sparkles className="h-6 w-6" aria-hidden />
             </span>
@@ -232,7 +232,7 @@ export function GettingStartedLaunchpad() {
           type="button"
           disabled={packetBusy}
           onClick={() => void onDummyBrokerPacket()}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#007bff]/50 bg-[#007bff]/20 px-3 py-1.5 text-xs font-semibold text-sky-100 shadow-[0_0_20px_rgba(0,123,255,0.2)] backdrop-blur-sm hover:bg-[#007bff]/30 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-12 min-w-[44px] touch-manipulation items-center justify-center gap-2 rounded-xl border border-[#007bff]/50 bg-[#007bff]/20 px-4 text-xs font-semibold text-sky-100 shadow-[0_0_20px_rgba(0,123,255,0.2)] backdrop-blur-sm hover:bg-[#007bff]/30 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {packetBusy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -254,45 +254,49 @@ export function GettingStartedLaunchpad() {
         aria-hidden
       />
 
-      <div className="relative border-b border-white/[0.08] px-6 py-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-sky-300/90">
-          Nexus Launchpad
-        </p>
-        <h2 className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
-          Welcome back, {displayName}. Clear the runway in four moves.
-        </h2>
-        <div className="mt-5">
-          <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-            <span>Progress</span>
-            <span className="tabular-nums font-medium text-slate-200">{pct}%</span>
+      <div className="relative border-b border-white/[0.08] px-4 py-5 sm:px-6">
+        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-8">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-sky-300/90">
+              Nexus Launchpad
+            </p>
+            <h2 className="mt-1 text-lg font-semibold tracking-tight text-white sm:text-xl">
+              Welcome back, {displayName}. Clear the runway in four moves.
+            </h2>
           </div>
-          <div
-            className="mt-2 h-3 overflow-hidden rounded-full bg-black/35 ring-1 ring-inset ring-white/10"
-            role="progressbar"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
+          <div className="w-full shrink-0 md:max-w-sm">
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+              <span>Progress</span>
+              <span className="tabular-nums font-medium text-slate-200">{pct}%</span>
+            </div>
             <div
-              className="relative h-full overflow-hidden rounded-full bg-gradient-to-r from-[#007bff] via-[#38bdf8] to-emerald-400 transition-[width] duration-700 ease-out motion-reduce:transition-none"
-              style={{ width: `${pct}%` }}
+              className="mt-2 h-3 overflow-hidden rounded-full bg-black/35 ring-1 ring-inset ring-white/10"
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
             >
-              {pct > 0 && pct < 100 ? (
-                <span
-                  className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                  aria-hidden
-                />
-              ) : null}
+              <div
+                className="relative h-full overflow-hidden rounded-full bg-gradient-to-r from-[#007bff] via-[#38bdf8] to-emerald-400 transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                style={{ width: `${pct}%` }}
+              >
+                {pct > 0 && pct < 100 ? (
+                  <span
+                    className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    aria-hidden
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <ol className="relative divide-y divide-white/[0.06] px-2 py-1 sm:px-3">
+      <ol className="relative divide-y divide-white/[0.06] px-2 py-1 md:px-3">
         {steps.map((s) => (
           <li
             key={s.n}
-            className="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
+            className="flex flex-col gap-3 px-3 py-4 md:flex-row md:items-start md:justify-between md:gap-6"
           >
             <div className="flex min-w-0 flex-1 gap-3">
               <span
@@ -312,11 +316,11 @@ export function GettingStartedLaunchpad() {
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:pt-0.5">
+            <div className="flex shrink-0 flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end md:pt-0.5">
               {s.href ? (
                 <Link
                   href={s.href}
-                  className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-100 backdrop-blur-sm hover:border-[#007bff]/45 hover:bg-[#007bff]/15"
+                  className="inline-flex min-h-12 min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] px-4 text-xs font-semibold text-slate-100 backdrop-blur-sm hover:border-[#007bff]/45 hover:bg-[#007bff]/15"
                 >
                   Open
                 </Link>

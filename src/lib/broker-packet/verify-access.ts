@@ -6,6 +6,7 @@ export type CarrierAccess = {
   name: string;
   /** MC docket from FMCSA (carriers.mc_number). */
   mc_number: string | null;
+  dot_number: string | null;
 };
 
 export async function getCarrierIfMember(
@@ -24,7 +25,7 @@ export async function getCarrierIfMember(
 
   const { data: carrier, error: cErr } = await supabase
     .from("carriers")
-    .select("id, org_id, name, mc_number")
+    .select("id, org_id, name, mc_number, dot_number")
     .eq("id", carrierId)
     .maybeSingle();
   if (cErr || !carrier) return null;
@@ -33,6 +34,7 @@ export async function getCarrierIfMember(
     org_id: string;
     name: string;
     mc_number: string | null;
+    dot_number?: string | null;
   };
   if (c.org_id !== orgId) return null;
   return {
@@ -40,5 +42,6 @@ export async function getCarrierIfMember(
     org_id: c.org_id,
     name: c.name,
     mc_number: c.mc_number?.trim() || null,
+    dot_number: c.dot_number?.trim() || null,
   };
 }

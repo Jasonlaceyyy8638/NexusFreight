@@ -123,15 +123,15 @@ export function DashboardCarriersPage(props?: {
 
   if (isCarrierOrg) {
     return (
-      <div className="px-6 py-16 text-center text-sm text-slate-500">
+      <div className="px-4 py-16 text-center text-sm text-slate-500 sm:px-6">
         Redirecting…
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Carriers
@@ -163,7 +163,7 @@ export function DashboardCarriersPage(props?: {
             }
             setAddCarrierOpen(true);
           }}
-          className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10"
+          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-200 hover:border-[#007bff]/40 hover:bg-white/10 md:w-auto"
         >
           Add carrier
         </button>

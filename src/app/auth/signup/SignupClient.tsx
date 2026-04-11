@@ -624,7 +624,7 @@ export function SignupClient() {
                         type="button"
                         disabled={!agencyName.trim() || !dotNumber.trim()}
                         onClick={() => setCarrierStep(3)}
-                        className="w-full rounded-md bg-[#007bff] py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#007bff] text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Continue to login credentials
                       </button>
@@ -780,7 +780,7 @@ export function SignupClient() {
             <button
               type="submit"
               disabled={busy || !canSubmitDispatcher}
-              className="w-full rounded-md bg-[#007bff] py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,123,255,0.3)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#007bff] text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,123,255,0.3)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? "Creating…" : "Create account"}
             </button>
@@ -790,7 +790,7 @@ export function SignupClient() {
             <button
               type="submit"
               disabled={busy || !canSubmitCarrier}
-              className="w-full rounded-md bg-[#007bff] py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,123,255,0.3)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#007bff] text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,123,255,0.3)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? "Creating…" : "Create business account"}
             </button>

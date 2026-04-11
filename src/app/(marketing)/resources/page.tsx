@@ -27,7 +27,7 @@ export default async function ResourcesHubPage() {
         description="Deep dives for dispatch teams and carrier fleets—compliance, day-to-day operations, and ways to automate repetitive work."
       />
 
-      <section className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 pt-4 sm:pb-24">
+      <section className="mx-auto w-full max-w-6xl flex-1 px-4 pb-20 pt-4 sm:px-6 sm:pb-24">
         {guides.length === 0 ? (
           <p className="max-w-xl text-sm leading-relaxed text-slate-500">
             New guides are on the way. In the meantime, explore product areas or

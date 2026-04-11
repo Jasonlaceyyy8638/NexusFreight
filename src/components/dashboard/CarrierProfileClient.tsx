@@ -122,7 +122,7 @@ export function CarrierProfileClient(props: {
   ).length;
 
   return (
-    <main className="mx-auto max-w-6xl space-y-10 px-6 py-10">
+    <main className="mx-auto max-w-6xl space-y-10 px-4 py-10 sm:px-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
           Carrier profile
@@ -326,54 +326,92 @@ export function CarrierProfileClient(props: {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
           Load history
         </h2>
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121416] shadow-[0_16px_48px_-16px_rgba(0,0,0,0.5)]">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-white/10 bg-[#16181A] text-xs uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Lane</th>
-                <th className="px-4 py-3 font-semibold">Rate</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 text-right font-semibold">Load details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loads.map((load, rowIdx) => (
-                <tr
+        {loads.length === 0 ? (
+          <p className="text-sm text-slate-500">No loads for this carrier yet.</p>
+        ) : (
+          <>
+            <ul className="space-y-3 md:hidden" aria-label="Load history">
+              {loads.map((load) => (
+                <li
                   key={load.id}
-                  className={`border-b border-white/[0.06] last:border-0 ${
-                    rowIdx % 2 === 0 ? "bg-[#1A1C1E]" : "bg-[#16181A]/90"
-                  }`}
+                  className="rounded-xl border border-white/10 bg-[#121416] p-4 shadow-[0_16px_48px_-16px_rgba(0,0,0,0.5)]"
                 >
-                  <td className="px-4 py-3 text-slate-200">
+                  <p className="text-sm font-medium text-slate-200">
                     {load.origin} → {load.destination}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-slate-300">
-                    {money(load.rate_cents)}
-                  </td>
-                  <td className="px-4 py-3">
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="tabular-nums text-sm text-slate-300">
+                      {money(load.rate_cents)}
+                    </span>
                     <LoadStatusBadge status={load.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right align-top">
-                    <div className="flex flex-col items-end gap-2">
-                      <Link
-                        href={`/dashboard/loads/${load.id}`}
-                        className="text-xs font-semibold text-[#3395ff] hover:underline"
-                      >
-                        Open
-                      </Link>
-                      <LoadQuickAlertButtons
-                        load={load}
-                        allowDispatch={permissions.can_dispatch_loads}
-                        onSuccess={() => void refresh()}
-                        className="justify-end"
-                      />
-                    </div>
-                  </td>
-                </tr>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
+                    <Link
+                      href={`/dashboard/loads/${load.id}`}
+                      className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-white/5 text-sm font-semibold text-[#3395ff] hover:bg-white/10"
+                    >
+                      Open load
+                    </Link>
+                    <LoadQuickAlertButtons
+                      load={load}
+                      allowDispatch={permissions.can_dispatch_loads}
+                      onSuccess={() => void refresh()}
+                      className="w-full flex-col sm:flex-row sm:flex-wrap"
+                    />
+                  </div>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+            <div className="hidden overflow-x-auto rounded-xl border border-white/10 bg-[#121416] shadow-[0_16px_48px_-16px_rgba(0,0,0,0.5)] md:block">
+              <table className="w-full min-w-[520px] text-left text-sm">
+                <thead className="border-b border-white/10 bg-[#16181A] text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Lane</th>
+                    <th className="px-4 py-3 font-semibold">Rate</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="px-4 py-3 text-right font-semibold">Load details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loads.map((load, rowIdx) => (
+                    <tr
+                      key={load.id}
+                      className={`border-b border-white/[0.06] last:border-0 ${
+                        rowIdx % 2 === 0 ? "bg-[#1A1C1E]" : "bg-[#16181A]/90"
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-slate-200">
+                        {load.origin} → {load.destination}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-slate-300">
+                        {money(load.rate_cents)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <LoadStatusBadge status={load.status} />
+                      </td>
+                      <td className="px-4 py-3 text-right align-top">
+                        <div className="flex flex-col items-end gap-2">
+                          <Link
+                            href={`/dashboard/loads/${load.id}`}
+                            className="text-xs font-semibold text-[#3395ff] hover:underline"
+                          >
+                            Open
+                          </Link>
+                          <LoadQuickAlertButtons
+                            load={load}
+                            allowDispatch={permissions.can_dispatch_loads}
+                            onSuccess={() => void refresh()}
+                            className="justify-end"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
 
       {supabase && orgId ? (

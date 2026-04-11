@@ -273,7 +273,7 @@ export function AddCarrierModal({
               <button
                 type="button"
                 onClick={finishAfterSave}
-                className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#007bff] px-4 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90"
               >
                 Done
               </button>
@@ -303,7 +303,7 @@ export function AddCarrierModal({
             <button
               type="button"
               onClick={() => void runFmcsaLookup()}
-              className="shrink-0 rounded-md border border-[#007bff]/50 bg-[#007bff]/15 px-4 py-2 text-sm font-semibold text-[#5aa9ff] hover:bg-[#007bff]/25"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-[#007bff]/50 bg-[#007bff]/15 px-4 text-sm font-semibold text-[#5aa9ff] hover:bg-[#007bff]/25"
             >
               Search FMCSA
             </button>
@@ -477,18 +477,18 @@ export function AddCarrierModal({
 
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-md border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 px-4 text-sm font-medium text-slate-200 hover:bg-white/5"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy || !canSave}
-              className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#007bff] px-4 text-sm font-semibold text-white shadow-[0_0_20px_rgba(0,123,255,0.25)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? "Saving…" : "Save carrier"}
             </button>

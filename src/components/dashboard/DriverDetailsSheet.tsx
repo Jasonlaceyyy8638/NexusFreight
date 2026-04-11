@@ -42,12 +42,12 @@ export function DriverDetailsSheet({
     <>
       <button
         type="button"
-        className="fixed inset-x-0 bottom-0 top-10 z-[110] bg-black/55 backdrop-blur-[2px]"
+        className="fixed inset-x-0 bottom-0 top-11 z-[110] bg-black/55 backdrop-blur-[2px]"
         aria-label="Close driver details"
         onClick={onClose}
       />
       <aside
-        className="fixed right-0 top-10 z-[120] flex h-[calc(100dvh-2.5rem)] w-full max-w-md flex-col border-l border-white/10 bg-[#16181A] shadow-[-12px_0_48px_-12px_rgba(0,0,0,0.65)]"
+        className="fixed right-0 top-11 z-[120] flex h-[calc(100dvh-2.75rem)] w-full max-w-md flex-col border-l border-white/10 bg-[#16181A] shadow-[-12px_0_48px_-12px_rgba(0,0,0,0.65)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="driver-details-title"
