@@ -15,6 +15,9 @@ const MARKET_PULSE_TEST_EMAIL = "jasonlaceyyy8638@gmail.com";
 /** DAT Trendlines — primary HTML scrape target (industry-standard public page). */
 const DAT_TRENDLINES_URL = "https://www.dat.com/trendlines/";
 
+/** Stored on `market_rates.source` and used for pro-tip routing; neutral (no vendor/model names in product UI or email). */
+const PULSE_SOURCE_PUBLISHED = "NexusFreight market pulse";
+
 /** Gemini model id (AI Studio / v1beta `generateContent`). */
 const GEMINI_FLASH_MODEL_ID = "gemini-3.1-flash-lite-preview";
 
@@ -525,9 +528,9 @@ async function resolvePulseMarketRates(
       const datHomepageText = await fetchNewsPageText(DAT_TRENDLINES_URL);
       const analyst = await marketAnalyst({ datHomepageText });
       if (analyst != null) {
-        console.log("[resolvePulseMarketRates] gemini_dat_homepage_analyst row:", analyst.row);
+        console.log("[resolvePulseMarketRates] analyst pulse row:", analyst.row);
         return {
-          pulse: { ...analyst.row, source: "gemini_dat_homepage_analyst" },
+          pulse: { ...analyst.row, source: PULSE_SOURCE_PUBLISHED },
           analystProTip: analyst.pro_tip,
         };
       }
@@ -720,8 +723,6 @@ function buildPulseEmailHtml(params: {
   rates: MarketRow & { pro_tip: string };
   dashboardUrl: string;
 }): string {
-  const src = params.rates.source;
-  const fromDatAi = src === "gemini_dat_homepage_analyst";
   const nat = (label: string) => `${label} (national average)`;
   /** Five equipment benchmarks for email (power-only stays in DB / dashboard only). */
   const rows = [
@@ -748,7 +749,7 @@ function buildPulseEmailHtml(params: {
         <tr><td style="padding:24px 28px;background:linear-gradient(135deg,#0f172a,#1e3a5f);">
           <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#93c5fd;">Market pulse</p>
           <h1 style="margin:8px 0 0;font-size:22px;color:#f8fafc;">National average benchmarks</h1>
-          <p style="margin:6px 0 0;font-size:13px;color:#cbd5e1;">${escapeHtml(params.dateLabel)} · Source: ${escapeHtml(params.rates.source)}${fromDatAi ? " · Equipment rates from DAT context + AI" : ""}</p>
+          <p style="margin:6px 0 0;font-size:13px;color:#cbd5e1;">${escapeHtml(params.dateLabel)}</p>
         </td></tr>
         <tr><td style="padding:20px 28px 8px 28px;">
           <p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:#475569;">These $/mi figures are <strong style="color:#334155;">national averages</strong> for planning and negotiation context—they are <strong style="color:#334155;">not guarantees</strong> on any specific load, lane, or contract.</p>
@@ -900,7 +901,7 @@ Deno.serve(async (req) => {
   let pro_tip_source: "gemini" | "gemini_fallback" | "template" = "template";
   let gemini_model: string | undefined;
 
-  if (analystProTip && pulseRow.source === "gemini_dat_homepage_analyst") {
+  if (analystProTip && pulseRow.source === PULSE_SOURCE_PUBLISHED) {
     pro_tip = analystProTip;
     pro_tip_source = "gemini";
     gemini_model = GEMINI_FLASH_MODEL_ID;

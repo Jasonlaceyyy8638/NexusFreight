@@ -117,6 +117,13 @@ function formatPct(p: number | null): string {
   return `${sign}${p.toFixed(1)}%`;
 }
 
+/** Legacy DB rows only; new pulses use a neutral `market_rates.source`. */
+function displayPulseSource(raw: string): string {
+  const t = raw.trim();
+  if (t === "gemini_dat_homepage_analyst") return "NexusFreight market pulse";
+  return t;
+}
+
 function pctTone(p: number | null): string {
   if (p == null || !Number.isFinite(p)) return "text-slate-500";
   if (p > 0.05) return "text-emerald-400";
@@ -245,7 +252,10 @@ export function MarketPulse() {
             {latest.source ? (
               <>
                 {" "}
-                · <span className="text-slate-600">{latest.source}</span>
+                ·{" "}
+                <span className="text-slate-600">
+                  {displayPulseSource(latest.source)}
+                </span>
               </>
             ) : null}
           </p>
