@@ -158,6 +158,7 @@ function formatPct(p: number | null): string {
 function displayPulseSource(raw: string): string {
   const t = raw.trim();
   if (t === "gemini_dat_homepage_analyst") return "NexusFreight market pulse";
+  if (t === "gemini_estimate_no_live_scrape") return "NexusFreight market pulse";
   return t;
 }
 
