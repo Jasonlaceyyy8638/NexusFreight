@@ -18,6 +18,8 @@ import { SecurityDataTrustSection } from "@/components/landing/SecurityDataTrust
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import LandingPricingCards from "@/components/landing/LandingPricingCards";
 import { LandingBridgeSection } from "@/components/landing/LandingBridgeSection";
+import { LandingMarketPulseSection } from "@/components/landing/LandingMarketPulseSection";
+import { RateConFeatureSpotlightSection } from "@/components/landing/RateConFeatureSpotlightSection";
 import { HomeJsonLd } from "@/components/seo/HomeJsonLd";
 
 export default function Home() {
@@ -91,6 +93,10 @@ export default function Home() {
           <IntegrationPartnersSection />
 
           <LandingBridgeSection />
+
+          <LandingMarketPulseSection />
+
+          <RateConFeatureSpotlightSection />
 
           <LandingPricingCards />
 
