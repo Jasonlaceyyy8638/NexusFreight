@@ -67,6 +67,8 @@ export type Profile = {
   id: string;
   org_id: string;
   role: ProfileRole;
+  /** Dispatcher personal commission % on linehaul (RateCon / settlements). */
+  dispatcher_commission_percent?: number | null;
   full_name: string | null;
   phone: string | null;
   /** Dispatcher mobile for SMS templates (`{{dispatcher_phone}}`); preferred when set. */
@@ -114,6 +116,8 @@ export type Carrier = {
   phone_carrier?: string | null;
   /** Magic-link ELD connect completed; dispatcher live map requires this. */
   eld_handshake_completed_at?: string | null;
+  /** Running sum of load linehaul (rate_cents); DB trigger on insert. */
+  total_revenue_cents?: number | null;
 };
 
 export type DriverPayStructure = "percent_gross" | "cpm";
@@ -142,6 +146,9 @@ export type Driver = {
   pay_cpm_cents?: number | null;
   /** Set when this roster row is linked to a login for /driver. */
   auth_user_id?: string | null;
+  /** Current ISO week linehaul total (UTC); maintained on load insert. */
+  week_revenue_cents?: number | null;
+  week_revenue_iso_week?: string | null;
 };
 
 export type UserPermissionsRow = {
@@ -214,6 +221,19 @@ export type Load = {
   loaded_driver_pay_cents?: number | null;
   driver_total_pay_cents?: number | null;
   dispatcher_commission_cents?: number | null;
+  /** Personal dispatcher cut from profile % (RateCon); separate from agency service fee. */
+  dispatcher_personal_profit_cents?: number | null;
+  pickup_location_name?: string | null;
+  pickup_address?: string | null;
+  pickup_date?: string | null;
+  pickup_time_window?: string | null;
+  delivery_location_name?: string | null;
+  delivery_address?: string | null;
+  delivery_date?: string | null;
+  delivery_time_window?: string | null;
+  commodities?: string | null;
+  weight_lbs?: number | null;
+  special_instructions?: string | null;
 };
 
 export type EldConnection = {

@@ -28,6 +28,100 @@ type Props = {
 const inputClass =
   "mt-1.5 w-full rounded-md border border-white/10 bg-[#121416] px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-[#007bff]/50";
 
+type ParsedRateConStop = {
+  locationName?: string;
+  address?: string;
+  date?: string | null;
+  timeWindow?: string;
+};
+
+type ParsedRateCon = {
+  pickup?: ParsedRateConStop;
+  delivery?: ParsedRateConStop;
+  commodities?: string;
+  weightLbs?: number | null;
+  specialInstructions?: string;
+  totalRateUsd?: number | null;
+};
+
+function joinStopLine(
+  locationName: string,
+  address: string,
+  date: string,
+  timeWindow: string
+): string {
+  const loc = [locationName.trim(), address.trim()].filter(Boolean).join(" · ");
+  const sched = [date.trim(), timeWindow.trim()].filter(Boolean).join(" · ");
+  if (loc && sched) return `${loc} | ${sched}`;
+  return loc || sched || "";
+}
+
+function applyParsedToForm(p: ParsedRateCon): {
+  pickupLocationName: string;
+  pickupAddress: string;
+  pickupDate: string;
+  pickupTimeWindow: string;
+  deliveryLocationName: string;
+  deliveryAddress: string;
+  deliveryDate: string;
+  deliveryTimeWindow: string;
+  commodities: string;
+  weightLbs: string;
+  specialInstructions: string;
+  origin: string;
+  destination: string;
+  ocrRateCents: number | null;
+} {
+  const pu = p.pickup ?? {};
+  const del = p.delivery ?? {};
+  const pickupLocationName = (pu.locationName ?? "").trim();
+  const pickupAddress = (pu.address ?? "").trim();
+  const pickupDate = (pu.date ?? "").trim().slice(0, 10);
+  const pickupTimeWindow = (pu.timeWindow ?? "").trim();
+  const deliveryLocationName = (del.locationName ?? "").trim();
+  const deliveryAddress = (del.address ?? "").trim();
+  const deliveryDate = (del.date ?? "").trim().slice(0, 10);
+  const deliveryTimeWindow = (del.timeWindow ?? "").trim();
+  const commodities = (p.commodities ?? "").trim();
+  const weightLbs =
+    p.weightLbs != null && Number.isFinite(Number(p.weightLbs))
+      ? String(p.weightLbs)
+      : "";
+  const specialInstructions = (p.specialInstructions ?? "").trim();
+  const origin = joinStopLine(
+    pickupLocationName,
+    pickupAddress,
+    pickupDate,
+    pickupTimeWindow
+  );
+  const destination = joinStopLine(
+    deliveryLocationName,
+    deliveryAddress,
+    deliveryDate,
+    deliveryTimeWindow
+  );
+  let ocrRateCents: number | null = null;
+  if (p.totalRateUsd != null && Number.isFinite(Number(p.totalRateUsd))) {
+    ocrRateCents = Math.round(Number(p.totalRateUsd) * 100);
+  }
+  return {
+    pickupLocationName,
+    pickupAddress,
+    pickupDate,
+    pickupTimeWindow,
+    deliveryLocationName,
+    deliveryAddress,
+    deliveryDate,
+    deliveryTimeWindow,
+    commodities,
+    weightLbs,
+    specialInstructions,
+    origin,
+    destination,
+    ocrRateCents,
+  };
+}
+
 export function LoadEntryModal({
   open,
   onClose,
@@ -41,6 +135,8 @@ export function LoadEntryModal({
     openDemoAccountGate,
     trucks,
     permissions,
+    profileRole,
+    dispatcherCommissionPercent,
   } = useDashboardData();
   const canFin = permissions.can_view_financials;
   const assignableCarriers = useMemo(
@@ -66,6 +162,24 @@ export function LoadEntryModal({
   const [mileageBusy, setMileageBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [pickupLocationName, setPickupLocationName] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupTimeWindow, setPickupTimeWindow] = useState("");
+  const [deliveryLocationName, setDeliveryLocationName] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [deliveryTimeWindow, setDeliveryTimeWindow] = useState("");
+  const [commodities, setCommodities] = useState("");
+  const [weightLbs, setWeightLbs] = useState("");
+  const [specialInstructions, setSpecialInstructions] = useState("");
+
+  const [ocrRateCents, setOcrRateCents] = useState<number | null>(null);
+  const [manualRateOverride, setManualRateOverride] = useState(false);
+  const [scanProcessing, setScanProcessing] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(true);
 
   const filteredDrivers = drivers.filter(
     (d) =>
@@ -114,11 +228,32 @@ export function LoadEntryModal({
     setLoadedMiles(null);
     setMileageMsg(null);
     setError(null);
+    setPickupLocationName("");
+    setPickupAddress("");
+    setPickupDate("");
+    setPickupTimeWindow("");
+    setDeliveryLocationName("");
+    setDeliveryAddress("");
+    setDeliveryDate("");
+    setDeliveryTimeWindow("");
+    setCommodities("");
+    setWeightLbs("");
+    setSpecialInstructions("");
+    setOcrRateCents(null);
+    setManualRateOverride(false);
+    setScanProcessing(false);
+    setScanError(null);
+    setDetailsOpen(true);
   }, [carriers]);
 
   useEffect(() => {
     if (open) reset();
   }, [open, reset]);
+
+  const effectiveRateCents = useMemo(() => {
+    if (ocrRateCents != null && !manualRateOverride) return ocrRateCents;
+    return Math.round(parseFloat(rate || "0") * 100);
+  }, [ocrRateCents, manualRateOverride, rate]);
 
   const payStructure: DriverPayStructure =
     selectedDriver?.pay_structure === "cpm" ? "cpm" : "percent_gross";
@@ -126,7 +261,7 @@ export function LoadEntryModal({
   const payCpm = selectedDriver?.pay_cpm_cents ?? 70;
 
   const previewPay = useMemo(() => {
-    const rateCents = Math.round(parseFloat(rate || "0") * 100);
+    const rateCents = effectiveRateCents;
     const ld = loadedMiles ?? 0;
     const dh = deadheadMiles ?? 0;
     const dhRateCpm = Math.round(parseFloat(deadheadRateUsd || "0") * 100);
@@ -145,7 +280,7 @@ export function LoadEntryModal({
     const total = computeDriverTotalPayCents(loadedPay, dhPay);
     return { loadedPay, dhPay, total };
   }, [
-    rate,
+    effectiveRateCents,
     loadedMiles,
     deadheadMiles,
     payDeadhead,
@@ -155,6 +290,102 @@ export function LoadEntryModal({
     payCpm,
     canFin,
   ]);
+
+  const runScan = async (f: File) => {
+    setScanError(null);
+    setScanProcessing(true);
+    try {
+      if (interactiveDemo) {
+        await new Promise((r) => setTimeout(r, 900));
+        const mock: ParsedRateCon = {
+          pickup: {
+            locationName: "Shipper Warehouse A",
+            address: "100 Industrial Pkwy, Dallas, TX",
+            date: "2026-04-15",
+            timeWindow: "08:00–14:00",
+          },
+          delivery: {
+            locationName: "Receiver DC",
+            address: "2500 Logistics Blvd, Atlanta, GA",
+            date: "2026-04-17",
+            timeWindow: "06:00–12:00 FCFS",
+          },
+          commodities: "Dry grocery, floor-loaded",
+          weightLbs: 42000,
+          specialInstructions: "Seal intact; check in at guard shack.",
+          totalRateUsd: 2850,
+        };
+        const applied = applyParsedToForm(mock);
+        setPickupLocationName(applied.pickupLocationName);
+        setPickupAddress(applied.pickupAddress);
+        setPickupDate(applied.pickupDate);
+        setPickupTimeWindow(applied.pickupTimeWindow);
+        setDeliveryLocationName(applied.deliveryLocationName);
+        setDeliveryAddress(applied.deliveryAddress);
+        setDeliveryDate(applied.deliveryDate);
+        setDeliveryTimeWindow(applied.deliveryTimeWindow);
+        setCommodities(applied.commodities);
+        setWeightLbs(applied.weightLbs);
+        setSpecialInstructions(applied.specialInstructions);
+        setOrigin(applied.origin);
+        setDestination(applied.destination);
+        setOcrRateCents(applied.ocrRateCents);
+        setManualRateOverride(false);
+        setRate("");
+        return;
+      }
+
+      const supabase = createClient();
+      if (!supabase) {
+        setScanError("Configure Supabase client to scan documents.");
+        return;
+      }
+      const ext = f.name.split(".").pop() || "pdf";
+      const path = `${orgId}/scan-temp/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("ratecons")
+        .upload(path, f, { upsert: false });
+      if (upErr) throw upErr;
+
+      const { data, error: fnErr } = await supabase.functions.invoke<{
+        parsed?: ParsedRateCon;
+        error?: string;
+      }>("ratecon-parse", {
+        body: { storagePath: path },
+      });
+      if (fnErr) throw fnErr;
+      if (data && typeof data === "object" && "error" in data && data.error) {
+        throw new Error(String(data.error));
+      }
+      const parsed = data?.parsed;
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("Unexpected response from scan service.");
+      }
+      const applied = applyParsedToForm(parsed);
+      setPickupLocationName(applied.pickupLocationName);
+      setPickupAddress(applied.pickupAddress);
+      setPickupDate(applied.pickupDate);
+      setPickupTimeWindow(applied.pickupTimeWindow);
+      setDeliveryLocationName(applied.deliveryLocationName);
+      setDeliveryAddress(applied.deliveryAddress);
+      setDeliveryDate(applied.deliveryDate);
+      setDeliveryTimeWindow(applied.deliveryTimeWindow);
+      setCommodities(applied.commodities);
+      setWeightLbs(applied.weightLbs);
+      setSpecialInstructions(applied.specialInstructions);
+      setOrigin(applied.origin);
+      setDestination(applied.destination);
+      setOcrRateCents(applied.ocrRateCents);
+      setManualRateOverride(false);
+      setRate("");
+    } catch (err) {
+      setScanError(
+        err instanceof Error ? err.message : "Scan failed. Try another file."
+      );
+    } finally {
+      setScanProcessing(false);
+    }
+  };
 
   const fetchMileage = async () => {
     if (!canFin) return;
@@ -196,8 +427,10 @@ export function LoadEntryModal({
     }
     setBusy(true);
     setError(null);
-    const rateCents = Math.round(parseFloat(rate || "0") * 100);
-    if (!origin.trim() || !destination.trim() || !carrierId) {
+    const rateCents = effectiveRateCents;
+    const originLine = origin.trim();
+    const destLine = destination.trim();
+    if (!originLine || !destLine || !carrierId) {
       setError("Origin, destination, and carrier are required.");
       setBusy(false);
       return;
@@ -249,17 +482,39 @@ export function LoadEntryModal({
       });
       const driverTotal = computeDriverTotalPayCents(loadedPay, dhPay);
 
+      const dispatcherPersonalProfitCents =
+        profileRole === "Dispatcher" && rateCents > 0
+          ? Math.round((rateCents * dispatcherCommissionPercent) / 100)
+          : null;
+
       const nowIso = new Date().toISOString();
       const row: Record<string, unknown> = {
         org_id: orgId,
         carrier_id: carrierId,
         driver_id: driverId || null,
-        origin: origin.trim(),
-        destination: destination.trim(),
+        origin: originLine,
+        destination: destLine,
         rate_cents: rateCents,
         status: driverId ? "dispatched" : "draft",
         ratecon_storage_path: rateconPath,
+        pickup_location_name: pickupLocationName.trim() || null,
+        pickup_address: pickupAddress.trim() || null,
+        pickup_date: pickupDate.trim() || null,
+        pickup_time_window: pickupTimeWindow.trim() || null,
+        delivery_location_name: deliveryLocationName.trim() || null,
+        delivery_address: deliveryAddress.trim() || null,
+        delivery_date: deliveryDate.trim() || null,
+        delivery_time_window: deliveryTimeWindow.trim() || null,
+        commodities: commodities.trim() || null,
+        weight_lbs:
+          weightLbs.trim() && !Number.isNaN(parseFloat(weightLbs))
+            ? parseFloat(weightLbs)
+            : null,
+        special_instructions: specialInstructions.trim() || null,
       };
+      if (dispatcherPersonalProfitCents != null) {
+        row.dispatcher_personal_profit_cents = dispatcherPersonalProfitCents;
+      }
       if (driverId) {
         row.dispatched_at = nowIso;
       }
@@ -311,6 +566,8 @@ export function LoadEntryModal({
     selectedCarrier != null &&
     carrierAuthorityAssignable(selectedCarrier);
 
+  const hideLinehaulInForm = ocrRateCents != null && !manualRateOverride;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div
@@ -327,13 +584,181 @@ export function LoadEntryModal({
             New load
           </h2>
           <p className="mt-1 text-xs text-slate-500">
-            Lane, rate, assignments, optional rate con PDF, and payroll fields when
-            you have financials access.
+            Scan a rate confirmation to pre-fill stops and driver details. Linehaul
+            from the document is stored for payroll and carrier totals but is not
+            shown in this form when captured by AI.
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+          <div className="rounded-lg border border-[#007bff]/20 bg-[#007bff]/5 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              RateCon scanner
+            </p>
+            <p className="mt-1 text-[11px] text-slate-600">
+              Upload a PDF or image. We store it in{" "}
+              <code className="rounded border border-white/10 bg-[#121416] px-1 text-slate-400">
+                ratecons
+              </code>{" "}
+              temporarily, parse with Gemini in an Edge Function, then you can
+              review everything below.
+            </p>
+            <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-[#007bff]/35 bg-[#121416]/40 px-4 py-6 text-center text-sm text-slate-400 transition-colors hover:border-[#007bff]/55">
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,application/pdf,.png,.jpg,.jpeg,.webp"
+                disabled={scanProcessing}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setFile(f);
+                  setScanError(null);
+                  if (f) void runScan(f);
+                }}
+              />
+              {scanProcessing ? (
+                <span className="font-medium text-[#007bff]">Processing…</span>
+              ) : (
+                <>
+                  <span className="text-slate-300">Drop or click — Scan RateCon</span>
+                  <span className="mt-1 text-xs text-slate-500">
+                    Parses pickup, delivery, cargo, and linehaul (linehaul hidden
+                    here when found)
+                  </span>
+                </>
+              )}
+            </label>
+            {scanError ? (
+              <p className="mt-2 text-xs text-red-400" role="alert">
+                {scanError}
+              </p>
+            ) : null}
+            {ocrRateCents != null && !manualRateOverride ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="text-[11px] text-emerald-400/90">
+                  Linehaul captured from the document — not shown as an editable
+                  field here (driver-facing views stay free of broker price).
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualRateOverride(true);
+                    setRate((ocrRateCents / 100).toFixed(2));
+                  }}
+                  className="rounded border border-white/15 px-2 py-1 text-[11px] text-slate-300 hover:bg-white/5"
+                >
+                  Edit linehaul manually
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((v) => !v)}
+            className="flex w-full items-center justify-between rounded-md border border-white/10 bg-[#121416]/50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
+          >
+            <span>Pickup &amp; delivery details</span>
+            <span className="text-slate-400">{detailsOpen ? "−" : "+"}</span>
+          </button>
+          {detailsOpen ? (
+            <div className="grid gap-3 rounded-lg border border-white/[0.06] bg-[#121416]/40 p-3 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <p className="text-[10px] font-semibold uppercase text-slate-500">
+                  Pick-up
+                </p>
+                <input
+                  className={inputClass}
+                  value={pickupLocationName}
+                  onChange={(e) => setPickupLocationName(e.target.value)}
+                  placeholder="Location name"
+                />
+                <input
+                  className={inputClass}
+                  value={pickupAddress}
+                  onChange={(e) => setPickupAddress(e.target.value)}
+                  placeholder="Street address"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={pickupDate}
+                    onChange={(e) => setPickupDate(e.target.value)}
+                  />
+                  <input
+                    className={inputClass}
+                    value={pickupTimeWindow}
+                    onChange={(e) => setPickupTimeWindow(e.target.value)}
+                    placeholder="Time window"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <p className="text-[10px] font-semibold uppercase text-slate-500">
+                  Delivery
+                </p>
+                <input
+                  className={inputClass}
+                  value={deliveryLocationName}
+                  onChange={(e) => setDeliveryLocationName(e.target.value)}
+                  placeholder="Location name"
+                />
+                <input
+                  className={inputClass}
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder="Street address"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={deliveryDate}
+                    onChange={(e) => setDeliveryDate(e.target.value)}
+                  />
+                  <input
+                    className={inputClass}
+                    value={deliveryTimeWindow}
+                    onChange={(e) => setDeliveryTimeWindow(e.target.value)}
+                    placeholder="Time window"
+                  />
+                </div>
+              </div>
+              <label className="block sm:col-span-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Commodities
+                <input
+                  className={inputClass}
+                  value={commodities}
+                  onChange={(e) => setCommodities(e.target.value)}
+                  placeholder="e.g. dry van grocery"
+                />
+              </label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Weight (lbs)
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className={inputClass}
+                  value={weightLbs}
+                  onChange={(e) => setWeightLbs(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+              <label className="block sm:col-span-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Special instructions (driver)
+                <textarea
+                  className={`${inputClass} min-h-[72px] resize-y`}
+                  value={specialInstructions}
+                  onChange={(e) => setSpecialInstructions(e.target.value)}
+                  placeholder="Temp, seals, check-in, lumpers…"
+                />
+              </label>
+            </div>
+          ) : null}
+
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Origin
+            Origin (summary)
             <input
               className={inputClass}
               value={origin}
@@ -342,7 +767,7 @@ export function LoadEntryModal({
             />
           </label>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Destination
+            Destination (summary)
             <input
               className={inputClass}
               value={destination}
@@ -350,18 +775,24 @@ export function LoadEntryModal({
               placeholder="City, ST or full address"
             />
           </label>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Rate (USD)
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              className={inputClass}
-              value={rate}
-              onChange={(e) => setRate(e.target.value)}
-              placeholder="0.00"
-            />
-          </label>
+          {!hideLinehaulInForm ? (
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Rate (USD)
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className={inputClass}
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                placeholder="0.00"
+              />
+            </label>
+          ) : (
+            <div className="rounded-md border border-white/10 bg-[#121416]/60 px-3 py-2 text-sm text-slate-500">
+              Linehaul is set from the scanned rate confirmation (not editable here).
+            </div>
+          )}
           {singleCarrier ? (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -539,28 +970,32 @@ export function LoadEntryModal({
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Rate confirmation (PDF preferred)
+              Rate confirmation file (optional)
             </p>
             <p className="mt-1 text-[11px] text-slate-600">
-              Upload the carrier-signed rate confirmation. It appears under Loads →
-              Documents for view, download, and email.
+              If you already scanned above, the same file is saved with the load.
+              Choose a different file here to replace it.
             </p>
-            <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-amber-500/25 bg-amber-950/10 px-4 py-8 text-center text-sm text-slate-400 transition-colors hover:border-amber-500/40">
+            <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-amber-500/25 bg-amber-950/10 px-4 py-6 text-center text-sm text-slate-400 transition-colors hover:border-amber-500/40">
               <input
                 type="file"
                 className="hidden"
                 accept=".pdf,application/pdf,.png,.jpg,.jpeg"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setFile(f);
+                  setScanError(null);
+                }}
               />
               {file ? (
                 <span className="font-medium text-slate-200">{file.name}</span>
               ) : (
                 <>
                   <span className="text-slate-300">
-                    Upload rate confirmation PDF
+                    Attach rate confirmation PDF
                   </span>
                   <span className="mt-1 text-xs text-slate-500">
-                    PDF recommended · stored in{" "}
+                    Stored in{" "}
                     <code className="rounded-md border border-white/10 bg-[#16181A] px-1 text-slate-400">
                       ratecons
                     </code>
@@ -587,7 +1022,7 @@ export function LoadEntryModal({
             </button>
             <button
               type="submit"
-              disabled={busy || !carrierAssignable}
+              disabled={busy || !carrierAssignable || scanProcessing}
               className="rounded-md bg-[#007bff] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.3)] hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save load"}

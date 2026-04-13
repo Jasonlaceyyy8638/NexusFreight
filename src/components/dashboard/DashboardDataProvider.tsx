@@ -57,6 +57,12 @@ import type {
 } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+function parseDispatcherCommissionPercent(raw: unknown): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return 10;
+  return n;
+}
+
 function applyBundle(
   setters: {
     setOrgId: (v: string | null) => void;
@@ -102,6 +108,8 @@ export type DashboardDataContextValue = {
   authSessionUserId: string | null;
   /** False until initial `getSession` completes (avoid demo banner flash). */
   authSessionResolved: boolean;
+  /** Personal dispatcher commission % (profiles.dispatcher_commission_percent). */
+  dispatcherCommissionPercent: number;
   /** Signed in but profile has no org — empty workspace, not seeded demo data. */
   onboardingRequired: boolean;
   /** Corporate admin (info@) using interactive dispatcher/carrier sandbox while signed in. */
@@ -213,6 +221,8 @@ export function DashboardDataProvider({
     () => PERMISSIONS_FULL_ACCESS
   );
   const [profileRole, setProfileRole] = useState<ProfileRole | null>(null);
+  const [dispatcherCommissionPercent, setDispatcherCommissionPercent] =
+    useState(10);
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
   const [trialType, setTrialType] = useState<TrialType | null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
@@ -289,6 +299,7 @@ export function DashboardDataProvider({
       setUsingDemo(true);
       setPermissions(PERMISSIONS_FULL_ACCESS);
       setProfileRole(null);
+      setDispatcherCommissionPercent(10);
       setCurrentProfileId(null);
       setTrialType(null);
       setTrialEndsAt(null);
@@ -319,6 +330,7 @@ export function DashboardDataProvider({
         setInteractiveDemoVariant(demoSession);
         setPermissions(PERMISSIONS_FULL_ACCESS);
         setProfileRole(null);
+        setDispatcherCommissionPercent(10);
         setCurrentProfileId(null);
         setTrialType(null);
         setTrialEndsAt(null);
@@ -336,7 +348,7 @@ export function DashboardDataProvider({
     } = await supabase.auth.getUser();
 
     const profileSelect =
-      "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id" as const;
+      "org_id, role, id, trial_type, trial_ends_at, is_beta_user, stripe_subscription_id, dispatcher_commission_percent" as const;
     const { data: profileRow, error: profileError } = authUser?.id
       ? await supabase
           .from("profiles")
@@ -399,6 +411,12 @@ export function DashboardDataProvider({
           setOrganizationName("Sandbox preview (not customer data)");
           setCurrentProfileId(profile?.id ?? null);
           setProfileRole((profile?.role as ProfileRole) ?? "Admin");
+          setDispatcherCommissionPercent(
+            parseDispatcherCommissionPercent(
+              (profile as { dispatcher_commission_percent?: unknown } | null)
+                ?.dispatcher_commission_percent
+            )
+          );
           setTrialType(null);
           setTrialEndsAt(null);
           setIsBetaUser(false);
@@ -422,6 +440,12 @@ export function DashboardDataProvider({
         setSelectedCarrierId(null);
         setCurrentProfileId(profile?.id ?? null);
         setProfileRole((profile?.role as ProfileRole) ?? null);
+        setDispatcherCommissionPercent(
+          parseDispatcherCommissionPercent(
+            (profile as { dispatcher_commission_percent?: unknown } | null)
+              ?.dispatcher_commission_percent
+          )
+        );
         setTrialType((profile?.trial_type as TrialType) ?? null);
         setTrialEndsAt(profile?.trial_ends_at ?? null);
         setIsBetaUser(Boolean(profile?.is_beta_user));
@@ -450,6 +474,7 @@ export function DashboardDataProvider({
       setUsingDemo(true);
       setPermissions(PERMISSIONS_FULL_ACCESS);
       setProfileRole(null);
+      setDispatcherCommissionPercent(10);
       setCurrentProfileId(null);
       setTrialType(null);
       setTrialEndsAt(null);
@@ -469,6 +494,12 @@ export function DashboardDataProvider({
     setOrgId(resolvedOrgId);
     setCurrentProfileId(profile.id);
     setProfileRole(profile.role as ProfileRole);
+    setDispatcherCommissionPercent(
+      parseDispatcherCommissionPercent(
+        (profile as { dispatcher_commission_percent?: unknown })
+          .dispatcher_commission_percent
+      )
+    );
     setTrialType((profile.trial_type as TrialType) ?? null);
     setTrialEndsAt(profile.trial_ends_at ?? null);
     setIsBetaUser(Boolean(profile.is_beta_user));
@@ -811,6 +842,7 @@ export function DashboardDataProvider({
       openDemoAccountGate,
       permissions,
       profileRole,
+      dispatcherCommissionPercent,
       currentProfileId,
       trialType,
       trialEndsAt,
@@ -845,6 +877,7 @@ export function DashboardDataProvider({
       openDemoAccountGate,
       permissions,
       profileRole,
+      dispatcherCommissionPercent,
       currentProfileId,
       trialType,
       trialEndsAt,

@@ -3,6 +3,7 @@
 #   `supabase functions deploy discord-notifier`
 #   `supabase functions deploy stripe-to-discord`
 #   `supabase functions deploy automated-market-pulse`
+#   `supabase functions deploy ratecon-parse`  (uses GOOGLE_AI_API_KEY)
 
 [functions.send-product-update]
 verify_jwt = false
@@ -15,3 +16,7 @@ verify_jwt = false
 
 [functions.automated-market-pulse]
 verify_jwt = false
+
+# Authenticated users only — parses uploads from `ratecons` bucket.
+[functions.ratecon-parse]
+verify_jwt = true
