@@ -15,8 +15,9 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="mt-2 text-sm text-slate-500">
-        Last updated: April 5, 2026 · Placeholder for B2B logistics SaaS—have
-        counsel review before production.
+        Last updated: April 15, 2026 · For general business customers; consult
+        qualified counsel for your jurisdiction before relying on this as legal
+        advice.
       </p>
 
       <h2 className="mt-10 text-xl font-semibold tracking-tight text-white sm:text-2xl">
@@ -26,7 +27,14 @@ export default function PrivacyPage() {
         This Privacy Policy describes how NexusFreight (“NexusFreight,” “we,”
         “us”) handles personal and operational information when you use our
         logistics management platform. It applies to business customers and
-        their authorized users.
+        their authorized users, including users who access the Service through
+        our websites, dashboard, and mobile applications distributed via app
+        stores.
+      </p>
+      <p className="mt-4 leading-relaxed">
+        The Service is intended for adults in a business context (e.g. carrier
+        and agency staff and invited drivers). It is not directed at children
+        under 13.
       </p>
 
       <h2 className="mt-10 text-xl font-semibold tracking-tight text-white sm:text-2xl">
@@ -54,6 +62,28 @@ export default function PrivacyPage() {
           </strong>{" "}
           received from electronic logging device (ELD) and telematics providers
           when you connect those integrations and authorize data access.
+        </li>
+        <li>
+          <strong className="font-semibold text-slate-200">
+            Mobile app (Nexus Driver for Android / iOS)
+          </strong>
+          : If your carrier invites you to use our driver app, we process
+          account sign-in data (such as email) through our authentication
+          provider;{" "}
+          <strong className="font-semibold text-slate-200">
+            device location
+          </strong>{" "}
+          when you grant permission, so your position can appear on your
+          organization&apos;s operational map in NexusFreight; and{" "}
+          <strong className="font-semibold text-slate-200">
+            push notification tokens
+          </strong>{" "}
+          if you allow notifications, so we can deliver operational alerts. The
+          app may store session material on-device using the platform secure
+          storage APIs. Infrastructure for accounts, database, and related
+          services is provided by our hosting and backend suppliers (e.g.
+          Supabase); push delivery may use platform notification services (e.g.
+          Apple / Google) as applicable.
         </li>
         <li>
           Technical and usage data (e.g., device, browser, log data) needed to
