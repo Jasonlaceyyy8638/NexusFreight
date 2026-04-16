@@ -46,6 +46,7 @@ import {
 import type {
   Carrier,
   Driver,
+  DriverLocationRow,
   DriverRosterStatus,
   EldConnection,
   Load,
@@ -72,6 +73,7 @@ function applyBundle(
     setLoads: (v: Load[]) => void;
     setTrucks: (v: Truck[]) => void;
     setEldConnections: (v: EldConnection[]) => void;
+    setDriverLocations: (v: DriverLocationRow[]) => void;
     setSelectedCarrierId: Dispatch<SetStateAction<string | null>>;
   },
   b: ReturnType<typeof getInteractiveDemoBundle>
@@ -83,6 +85,7 @@ function applyBundle(
   setters.setLoads(b.loads);
   setters.setTrucks(b.trucks);
   setters.setEldConnections(b.eldConnections);
+  setters.setDriverLocations([]);
   setters.setSelectedCarrierId((prev) =>
     prev && b.carriers.some((c) => c.id === prev)
       ? prev
@@ -121,6 +124,8 @@ export type DashboardDataContextValue = {
   loads: Load[];
   trucks: Truck[];
   eldConnections: EldConnection[];
+  /** Latest native app GPS per driver (`driver_locations`). */
+  driverLocations: DriverLocationRow[];
   selectedCarrierId: string | null;
   setSelectedCarrierId: (id: string | null) => void;
   refresh: () => Promise<void>;
@@ -212,6 +217,9 @@ export function DashboardDataProvider({
   const [eldConnections, setEldConnections] = useState<EldConnection[]>(
     () => seedBundle?.eldConnections ?? (supabase ? [] : demoEld)
   );
+  const [driverLocations, setDriverLocations] = useState<DriverLocationRow[]>(
+    () => []
+  );
   const [selectedCarrierId, setSelectedCarrierId] = useState<string | null>(
     () =>
       seedBundle?.defaultSelectedCarrierId ??
@@ -291,6 +299,7 @@ export function DashboardDataProvider({
       setLoads,
       setTrucks,
       setEldConnections,
+      setDriverLocations,
       setSelectedCarrierId,
     };
 
@@ -437,6 +446,7 @@ export function DashboardDataProvider({
         setLoads([]);
         setTrucks([]);
         setEldConnections([]);
+        setDriverLocations([]);
         setSelectedCarrierId(null);
         setCurrentProfileId(profile?.id ?? null);
         setProfileRole((profile?.role as ProfileRole) ?? null);
@@ -532,12 +542,13 @@ export function DashboardDataProvider({
       setOrgType(orgTypeFromEmbed(null, profile.role) ?? "Agency");
     }
 
-    const [cRes, dRes, lRes, tRes, eRes] = await Promise.all([
+    const [cRes, dRes, lRes, tRes, eRes, dlRes] = await Promise.all([
       supabase.from("carriers").select("*").eq("org_id", resolvedOrgId),
       supabase.from("drivers").select("*").eq("org_id", resolvedOrgId),
       supabase.from("loads").select("*").eq("org_id", resolvedOrgId),
       supabase.from("trucks").select("*").eq("org_id", resolvedOrgId),
       supabase.from("eld_connections").select("*").eq("org_id", resolvedOrgId),
+      supabase.from("driver_locations").select("*").eq("org_id", resolvedOrgId),
     ]);
     const carrierList = (cRes.data as Carrier[]) ?? [];
     setCarriers(carrierList);
@@ -545,6 +556,12 @@ export function DashboardDataProvider({
     setLoads((lRes.data as Load[]) ?? []);
     setTrucks((tRes.data as Truck[]) ?? []);
     setEldConnections((eRes.data as EldConnection[]) ?? []);
+    if (dlRes.error) {
+      console.warn("[dashboard] driver_locations:", dlRes.error.message);
+      setDriverLocations([]);
+    } else {
+      setDriverLocations((dlRes.data as DriverLocationRow[]) ?? []);
+    }
     setSelectedCarrierId((prev) => {
       if (prev && carrierList.some((c) => c.id === prev)) return prev;
       return carrierList[0]?.id ?? null;
@@ -557,6 +574,38 @@ export function DashboardDataProvider({
     });
     return () => cancelAnimationFrame(id);
   }, [refresh]);
+
+  useEffect(() => {
+    if (!supabase || !orgId || usingDemo || interactiveDemo) return;
+    const channel = supabase
+      .channel(`driver_locations_org_${orgId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "driver_locations",
+          filter: `org_id=eq.${orgId}`,
+        },
+        () => {
+          void (async () => {
+            const { data, error } = await supabase
+              .from("driver_locations")
+              .select("*")
+              .eq("org_id", orgId);
+            if (error) {
+              console.warn("[dashboard] driver_locations realtime refetch:", error.message);
+              return;
+            }
+            setDriverLocations((data as DriverLocationRow[]) ?? []);
+          })();
+        }
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, orgId, usingDemo, interactiveDemo]);
 
   useEffect(() => {
     if (orgType !== "Carrier" || carriers.length !== 1) return;
@@ -834,6 +883,7 @@ export function DashboardDataProvider({
       loads,
       trucks,
       eldConnections,
+      driverLocations,
       selectedCarrierId,
       setSelectedCarrierId,
       refresh,
@@ -871,6 +921,7 @@ export function DashboardDataProvider({
       loads,
       trucks,
       eldConnections,
+      driverLocations,
       selectedCarrierId,
       refresh,
       dispatchSms,

@@ -153,9 +153,12 @@ export async function POST(req: Request) {
 
   const nfInvite = isCarrierOrg ? "fleet_driver" : "agency_driver";
 
+  const callback = new URL("/auth/callback", base);
+  callback.searchParams.set("next", "/driver/dashboard");
+
   const { data: inviteData, error: invErr } =
     await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${base}/driver/dashboard`,
+      redirectTo: callback.toString(),
       data: {
         nf_invite: nfInvite,
         org_id: orgId,

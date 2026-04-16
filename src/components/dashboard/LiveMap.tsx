@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Map, { Marker } from "react-map-gl/mapbox";
+import type { DriverAppMapPing } from "@/lib/driver-app/map-pings";
 import {
   dispatcherEldHandshakeCarrierIds,
   fetchTruckPositionsAllEldCarriers,
@@ -44,6 +45,8 @@ export function LiveMap(props: {
   isCarrierViewer?: boolean;
   /** Dispatcher: merge all carriers that have an ELD connection */
   showAllEldCarriers?: boolean;
+  /** Phone GPS from the native driver app (`driver_locations`). */
+  driverAppPings?: DriverAppMapPing[];
 }) {
   const [mapError, setMapError] = useState<string | null>(null);
   const { token, tokenError } = readMapboxToken();
@@ -55,6 +58,35 @@ export function LiveMap(props: {
     if (props.isCarrierViewer) return null;
     return dispatcherEldHandshakeCarrierIds(props.carriers);
   }, [props.isCarrierViewer, props.carriers]);
+
+  const driverPingsFiltered = useMemo(() => {
+    const raw = props.driverAppPings ?? [];
+    if (props.isCarrierViewer) {
+      const cid = props.selectedCarrierId ?? props.carriers[0]?.id ?? null;
+      if (!cid) return [];
+      return raw.filter((p) => p.carrierId === cid);
+    }
+    if (multi) {
+      const allowed = new Set(props.carriers.map((c) => c.id));
+      return raw.filter((p) => allowed.has(p.carrierId));
+    }
+    const cid = props.selectedCarrierId;
+    if (!cid) return [];
+    return raw.filter((p) => p.carrierId === cid);
+  }, [
+    props.driverAppPings,
+    props.isCarrierViewer,
+    props.selectedCarrierId,
+    props.carriers,
+    multi,
+  ]);
+
+  const driverPingsForGate = useMemo(() => {
+    if (multi || !props.selectedCarrierId) return [];
+    return (props.driverAppPings ?? []).filter(
+      (p) => p.carrierId === props.selectedCarrierId
+    );
+  }, [multi, props.selectedCarrierId, props.driverAppPings]);
 
   const pings = useMemo(() => {
     if (multi) {
@@ -81,13 +113,17 @@ export function LiveMap(props: {
   ]);
 
   const initialView = useMemo(() => {
-    if (pings.length === 0) {
+    const pts: { lng: number; lat: number }[] = [
+      ...pings.map((p) => ({ lng: p.lng, lat: p.lat })),
+      ...driverPingsFiltered.map((p) => ({ lng: p.lng, lat: p.lat })),
+    ];
+    if (pts.length === 0) {
       return { longitude: -98.35, latitude: 39.5, zoom: 3.5 };
     }
-    const lng = pings.reduce((s, p) => s + p.lng, 0) / pings.length;
-    const lat = pings.reduce((s, p) => s + p.lat, 0) / pings.length;
-    return { longitude: lng, latitude: lat, zoom: pings.length > 4 ? 4 : 6 };
-  }, [pings]);
+    const lng = pts.reduce((s, p) => s + p.lng, 0) / pts.length;
+    const lat = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
+    return { longitude: lng, latitude: lat, zoom: pts.length > 4 ? 4 : 6 };
+  }, [pings, driverPingsFiltered]);
 
   if (!token) {
     return (
@@ -118,7 +154,8 @@ export function LiveMap(props: {
     !multi &&
     props.selectedCarrierId &&
     handshakeIds &&
-    !handshakeIds.has(props.selectedCarrierId)
+    !handshakeIds.has(props.selectedCarrierId) &&
+    driverPingsForGate.length === 0
   ) {
     return (
       <div
@@ -133,7 +170,7 @@ export function LiveMap(props: {
     );
   }
 
-  if (multi && pings.length === 0) {
+  if (multi && pings.length === 0 && driverPingsFiltered.length === 0) {
     return (
       <div
         className={`flex items-center justify-center px-4 text-center text-sm text-slate-400 ${shellClass}`}
@@ -141,14 +178,14 @@ export function LiveMap(props: {
       >
         {props.isCarrierViewer ? (
           <>
-            No trucks with GPS yet on carriers that have an ELD integration.
-            Run the ELD sync job after connecting.
+            No trucks with ELD GPS and no driver-app positions yet. Connect ELD
+            or have drivers sign in on the mobile app.
           </>
         ) : (
           <>
-            No ELD-authorized carriers with live GPS yet. On the Carriers tab,
-            use &ldquo;Request ELD sync&rdquo; so the fleet can complete the magic
-            link; then the map will show trucks after the next GPS sync.
+            No ELD-authorized carriers with live truck GPS yet, and no driver-app
+            positions for this view. Complete ELD sync on the Carriers tab, or
+            have drivers share location from the app.
           </>
         )}
       </div>
@@ -191,7 +228,7 @@ export function LiveMap(props: {
 
           return (
             <Marker
-              key={p.truck.id}
+              key={`truck-${p.truck.id}`}
               longitude={p.lng}
               latitude={p.lat}
               anchor="bottom"
@@ -218,6 +255,43 @@ export function LiveMap(props: {
                     Live
                   </span>
                 ) : null}
+                {stale && minsAgo != null ? (
+                  <span className="max-w-[120px] text-center text-[9px] leading-tight text-amber-200/95">
+                    Last seen: {minsAgo} min ago
+                  </span>
+                ) : null}
+              </div>
+            </Marker>
+          );
+        })}
+        {driverPingsFiltered.map((p) => {
+          const stale = isStaleTruckPing(p.lastPingAt);
+          const minsAgo = minutesSincePing(p.lastPingAt);
+          const live = isRecentEldPing(p.lastPingAt);
+
+          return (
+            <Marker
+              key={`driver-${p.driverId}`}
+              longitude={p.lng}
+              latitude={p.lat}
+              anchor="bottom"
+            >
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="relative flex h-8 w-8 items-center justify-center">
+                  {live ? (
+                    <span
+                      className="absolute inline-flex h-full w-full rounded-full bg-cyan-400/35 animate-ping"
+                      aria-hidden
+                    />
+                  ) : null}
+                  <div className="relative z-[1] h-3.5 w-3.5 rounded-full border-2 border-white bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.75)] ring-1 ring-black/40" />
+                </div>
+                <span className="max-w-[120px] truncate text-[10px] font-medium text-cyan-100">
+                  {p.fullName}
+                </span>
+                <span className="rounded bg-cyan-600/90 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+                  App
+                </span>
                 {stale && minsAgo != null ? (
                   <span className="max-w-[120px] text-center text-[9px] leading-tight text-amber-200/95">
                     Last seen: {minsAgo} min ago

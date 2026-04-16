@@ -15,6 +15,10 @@ type Props = {
   carrierName: string;
   truckUnitLabel: string;
   onEdit?: () => void;
+  /** Resend Supabase invite / signup link for drivers who have not confirmed yet. */
+  canResendInvite?: boolean;
+  onResendInvite?: () => void;
+  resendBusy?: boolean;
 };
 
 export function DriverDetailsSheet({
@@ -24,6 +28,9 @@ export function DriverDetailsSheet({
   carrierName,
   truckUnitLabel,
   onEdit,
+  canResendInvite = false,
+  onResendInvite,
+  resendBusy = false,
 }: Props) {
   const { permissions } = useDashboardData();
   const canFin = permissions.can_view_financials;
@@ -75,6 +82,16 @@ export function DriverDetailsSheet({
                 className="rounded-md bg-[#007bff] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_0_16px_rgba(0,123,255,0.25)] hover:opacity-90"
               >
                 Edit
+              </button>
+            ) : null}
+            {canResendInvite && onResendInvite ? (
+              <button
+                type="button"
+                disabled={resendBusy}
+                onClick={() => onResendInvite()}
+                className="rounded-md border border-sky-500/40 bg-sky-950/40 px-3 py-1.5 text-xs font-semibold text-sky-100 hover:bg-sky-950/60 disabled:opacity-50"
+              >
+                {resendBusy ? "Sending…" : "Resend signup email"}
               </button>
             ) : null}
             <button

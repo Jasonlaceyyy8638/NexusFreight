@@ -4,6 +4,7 @@
 #   `supabase functions deploy stripe-to-discord`
 #   `supabase functions deploy automated-market-pulse`
 #   `supabase functions deploy ratecon-parse`  (uses GOOGLE_AI_API_KEY)
+#   `supabase functions deploy notify-driver-load`  (Expo push on load assign; set NOTIFY_DRIVER_LOAD_SECRET)
 
 [functions.send-product-update]
 verify_jwt = false
@@ -20,3 +21,7 @@ verify_jwt = false
 # Authenticated users only — parses uploads from `ratecons` bucket.
 [functions.ratecon-parse]
 verify_jwt = true
+
+# Database Webhook → loads assign; auth via NOTIFY_DRIVER_LOAD_SECRET or service role Bearer.
+[functions.notify-driver-load]
+verify_jwt = false

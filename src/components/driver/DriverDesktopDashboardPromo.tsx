@@ -10,7 +10,7 @@ import { Smartphone } from "lucide-react";
 export function DriverDesktopDashboardPromo() {
   const loginUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/auth/signup`;
+    return `${window.location.origin}/auth/login`;
   }, []);
 
   return (
@@ -42,8 +42,10 @@ export function DriverDesktopDashboardPromo() {
           access your loads.
         </h1>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-400">
-          The driver workspace is built for phones on the road. Scan the code
-          below with your camera to open the sign-in page on your device.
+          The driver workspace is built for phones on the road. After you accept
+          an invite on this browser, scan the code below to open{" "}
+          <span className="text-slate-300">Log in</span> on your phone with the
+          same email and password you set.
         </p>
 
         <div className="mt-10 rounded-2xl border border-white/10 bg-[#16181A]/95 p-6 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(0,123,255,0.15)] backdrop-blur-sm">

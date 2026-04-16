@@ -56,6 +56,7 @@ export function EditDriverModal({
   const reset = useCallback(() => {
     setFullName(driver.full_name);
     setPhone(driver.phone ?? "");
+    setPhoneCarrier(driver.phone_carrier ?? "");
     setCdl(driver.cdl_number ?? driver.license_number ?? "");
     setLicenseExpiration(driver.license_expiration?.slice(0, 10) ?? "");
     setTruckId(driver.assigned_truck_id ?? "");

@@ -151,6 +151,29 @@ export type Driver = {
   week_revenue_iso_week?: string | null;
 };
 
+/** Latest position from the native driver app (`driver_locations`). */
+export type DriverLocationRow = {
+  driver_id: string;
+  org_id: string;
+  carrier_id: string;
+  lat: number;
+  lng: number;
+  accuracy_m: number | null;
+  recorded_at: string;
+  updated_at: string;
+};
+
+export type DriverPushTokenPlatform = "ios" | "android";
+
+export type DriverPushTokenRow = {
+  id: string;
+  user_id: string;
+  driver_id: string;
+  expo_push_token: string;
+  platform: DriverPushTokenPlatform;
+  updated_at: string;
+};
+
 export type UserPermissionsRow = {
   profile_id: string;
   org_id: string;

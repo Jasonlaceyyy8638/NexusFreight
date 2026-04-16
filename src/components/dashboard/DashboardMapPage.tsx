@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { LiveMapLazy } from "@/components/dashboard/LiveMapLazy";
+import { buildDriverAppMapPings } from "@/lib/driver-app/map-pings";
 
 export function DashboardMapPage() {
   const {
@@ -12,7 +13,14 @@ export function DashboardMapPage() {
     eldConnections,
     carriers,
     isCarrierOrg,
+    drivers,
+    driverLocations,
   } = useDashboardData();
+
+  const driverAppPings = useMemo(
+    () => buildDriverAppMapPings(driverLocations, drivers),
+    [driverLocations, drivers]
+  );
 
   const mapWrapRef = useRef<HTMLDivElement>(null);
   const [mapHeight, setMapHeight] = useState(400);
@@ -93,6 +101,7 @@ export function DashboardMapPage() {
             height={mapHeight}
             isCarrierViewer={isCarrierOrg}
             showAllEldCarriers={!isCarrierOrg && showAllEld}
+            driverAppPings={driverAppPings}
           />
         </div>
       </div>

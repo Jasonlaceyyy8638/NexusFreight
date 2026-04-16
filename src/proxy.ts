@@ -183,28 +183,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/trial-expired", request.url));
   }
 
-  const stripeConfigured = Boolean(
-    process.env.STRIPE_SECRET_KEY?.trim() &&
-      (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY?.trim() ||
-        process.env.STRIPE_PRICE_ID?.trim() ||
-        process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_YEARLY?.trim())
-  );
-
-  if (
-    user &&
-    !demoBrowsing &&
-    !isCorporateSupportAdmin &&
-    stripeConfigured &&
-    profile != null &&
-    profile.role !== "Driver" &&
-    !profile.stripe_subscription_id?.trim() &&
-    accessAllowed(profile) &&
-    path.startsWith("/dashboard")
-  ) {
-    return NextResponse.redirect(
-      new URL("/auth/complete-subscription", request.url)
-    );
-  }
+  // Trial/founding users may have no `stripe_subscription_id` yet; do not force
+  // `/auth/complete-subscription` on every dashboard hit (breaks in-app nav).
+  // Accounts without a workspace link are still redirected above.
 
   return response;
 }

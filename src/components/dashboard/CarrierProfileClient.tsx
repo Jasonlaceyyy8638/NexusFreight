@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { BrokerPacketPanel } from "@/components/dashboard/BrokerPacketPanel";
 import { EditCarrierModal } from "@/components/dashboard/EditCarrierModal";
 import { LoadQuickAlertButtons } from "@/components/dashboard/LoadQuickAlertButtons";
@@ -11,6 +11,7 @@ import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { AuthorityActiveSinceBlock } from "@/components/fmcsa/AuthorityActiveSinceBlock";
 import { FmcsaVerifiedBadge } from "@/components/fmcsa/FmcsaVerifiedBadge";
 import { carrierAuthorityAssignable } from "@/lib/carrier-authority";
+import { buildDriverAppMapPings } from "@/lib/driver-app/map-pings";
 import { normalizeDriverRosterStatus } from "@/lib/driver-roster-status";
 import type {
   Carrier,
@@ -48,7 +49,14 @@ export function CarrierProfileClient(props: {
     refresh,
     permissions,
     isCarrierOrg,
+    driverLocations,
   } = useDashboardData();
+
+  const driverAppPings = useMemo(
+    () => buildDriverAppMapPings(driverLocations, drivers),
+    [driverLocations, drivers]
+  );
+
   const [editOpen, setEditOpen] = useState(false);
   const [profileTab, setProfileTab] = useState<"overview" | "packet">("overview");
   const showPacketTab = !isCarrierOrg;
@@ -319,6 +327,7 @@ export function CarrierProfileClient(props: {
           carriers={[carrier]}
           height={360}
           isCarrierViewer={isCarrierOrg}
+          driverAppPings={driverAppPings}
         />
       </section>
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { AddDriverModal } from "@/components/dashboard/AddDriverModal";
 import { DriverDetailsSheet } from "@/components/dashboard/DriverDetailsSheet";
 import { EditDriverModal } from "@/components/dashboard/EditDriverModal";
@@ -36,6 +37,7 @@ export function DashboardFleetPage() {
   const [addDriverOpen, setAddDriverOpen] = useState(false);
   const [detailsDriver, setDetailsDriver] = useState<Driver | null>(null);
   const [editDriver, setEditDriver] = useState<Driver | null>(null);
+  const [resendBusy, setResendBusy] = useState(false);
 
   const carrierFor = (id: string) => carriers.find((c) => c.id === id);
   const carrierName = (id: string) => carrierFor(id)?.name ?? "—";
@@ -47,7 +49,55 @@ export function DashboardFleetPage() {
     (interactiveDemo || permissions.can_edit_fleet);
 
   const canEditDriverRoster =
-    interactiveDemo || permissions.can_edit_fleet;
+    interactiveDemo ||
+    permissions.can_edit_fleet ||
+    (!isCarrierOrg && permissions.can_dispatch_loads);
+
+  const canResendDriverInvite =
+    interactiveDemo ||
+    (isCarrierOrg &&
+      (permissions.admin_access || permissions.can_edit_fleet)) ||
+    (!isCarrierOrg &&
+      (permissions.admin_access ||
+        permissions.can_edit_fleet ||
+        permissions.can_dispatch_loads));
+
+  const resendSignupEmail = useCallback(
+    async (driverId: string) => {
+      if (interactiveDemo) {
+        openDemoAccountGate();
+        return;
+      }
+      setResendBusy(true);
+      try {
+        const res = await fetch("/api/fleet/resend-driver-invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ driver_id: driverId }),
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          via?: string;
+        };
+        if (!res.ok) {
+          toast.error(
+            typeof j.error === "string" ? j.error : "Could not resend invite."
+          );
+          return;
+        }
+        toast.success(
+          j.via === "resend_email"
+            ? "Signup link sent to the driver’s email."
+            : "Invite email sent."
+        );
+      } catch {
+        toast.error("Request failed.");
+      } finally {
+        setResendBusy(false);
+      }
+    },
+    [interactiveDemo, openDemoAccountGate]
+  );
 
   const showFleetRemoveColumn =
     interactiveDemo && permissions.can_edit_fleet;
@@ -323,17 +373,23 @@ export function DashboardFleetPage() {
           carrierName={carrierName(detailsDriver.carrier_id)}
           truckUnitLabel={truckUnit(detailsDriver.assigned_truck_id)}
           onEdit={
-            isCarrierOrg && canEditDriverRoster
+            canEditDriverRoster
               ? () => {
                   setEditDriver(detailsDriver);
                   setDetailsDriver(null);
                 }
               : undefined
           }
+          canResendInvite={
+            canResendDriverInvite &&
+            Boolean(detailsDriver.auth_user_id?.trim())
+          }
+          onResendInvite={() => void resendSignupEmail(detailsDriver.id)}
+          resendBusy={resendBusy}
         />
       ) : null}
 
-      {editDriver && isCarrierOrg ? (
+      {editDriver && canEditDriverRoster ? (
         <EditDriverModal
           open
           onClose={() => setEditDriver(null)}
