@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { LoadMessageThread } from "@/components/dashboard/LoadMessageThread";
 import { LoadQuickAlertButtons } from "@/components/dashboard/LoadQuickAlertButtons";
 import { LoadStatusBadge } from "@/components/dashboard/LoadStatusBadge";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
@@ -69,6 +70,43 @@ export function LoadDetailPageClient({
         </div>
       </section>
 
+      {load.driver_id ? (
+        <section className="space-y-3 rounded-xl border border-white/10 bg-[#121416] p-5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Driver trip milestones (app)
+          </h2>
+          <p className="text-xs text-slate-500">
+            Driver confirms steps in Nexus Driver. Final step marks the load delivered.
+          </p>
+          <ul className="space-y-2 text-sm text-slate-300">
+            <li>
+              <span className="text-slate-500">On site pickup:</span>{" "}
+              {load.driver_milestone_pickup_at
+                ? new Date(load.driver_milestone_pickup_at).toLocaleString()
+                : "—"}
+            </li>
+            <li>
+              <span className="text-slate-500">Loaded:</span>{" "}
+              {load.driver_milestone_loaded_at
+                ? new Date(load.driver_milestone_loaded_at).toLocaleString()
+                : "—"}
+            </li>
+            <li>
+              <span className="text-slate-500">On site delivery:</span>{" "}
+              {load.driver_milestone_delivery_at
+                ? new Date(load.driver_milestone_delivery_at).toLocaleString()
+                : "—"}
+            </li>
+            <li>
+              <span className="text-slate-500">Signed BOL:</span>{" "}
+              {load.driver_milestone_bol_at
+                ? new Date(load.driver_milestone_bol_at).toLocaleString()
+                : "—"}
+            </li>
+          </ul>
+        </section>
+      ) : null}
+
       <section className="space-y-3 rounded-xl border border-white/10 bg-[#121416] p-5">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
           Quick Alert (email-to-SMS)
@@ -86,6 +124,10 @@ export function LoadDetailPageClient({
           onSuccess={() => router.refresh()}
         />
       </section>
+
+      {load.driver_id ? (
+        <LoadMessageThread loadId={load.id} orgId={load.org_id} />
+      ) : null}
 
       {load.activity_log && load.activity_log.length > 0 ? (
         <section className="space-y-3 rounded-xl border border-white/10 bg-[#121416] p-5">

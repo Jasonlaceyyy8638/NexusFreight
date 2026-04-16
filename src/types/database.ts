@@ -257,6 +257,21 @@ export type Load = {
   commodities?: string | null;
   weight_lbs?: number | null;
   special_instructions?: string | null;
+  /** Driver workflow: sequential milestones (see `driver_advance_load_milestone`). */
+  driver_milestone_pickup_at?: string | null;
+  driver_milestone_loaded_at?: string | null;
+  driver_milestone_delivery_at?: string | null;
+  driver_milestone_bol_at?: string | null;
+  bol_storage_path?: string | null;
+};
+
+export type LoadMessage = {
+  id: string;
+  load_id: string;
+  org_id: string;
+  sender_user_id: string;
+  body: string;
+  created_at: string;
 };
 
 export type EldConnection = {

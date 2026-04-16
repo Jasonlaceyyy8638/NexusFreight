@@ -1,0 +1,36 @@
+buildscript {
+  ext {
+    buildToolsVersion = "36.0.0"
+    minSdkVersion = 24
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    ndkVersion = "27.1.12297006"
+    kotlinVersion = "2.1.20"
+    agpVersion = "8.11.0"
+    rnGradlePluginVersion = "0.81.5"
+  }
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath("com.android.tools.build:gradle:$agpVersion")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+    // Firebase / FCM
+    classpath("com.google.gms:google-services:4.4.1")
+  }
+}
+
+plugins {
+  id("com.facebook.react.rootproject")
+}
+
+allprojects {
+  configurations.all {
+    resolutionStrategy {
+      force("com.google.android.gms:play-services-location:21.3.0")
+      force("com.google.android.gms:play-services-base:18.5.0")
+      force("com.google.android.gms:play-services-tasks:18.2.0")
+    }
+  }
+}

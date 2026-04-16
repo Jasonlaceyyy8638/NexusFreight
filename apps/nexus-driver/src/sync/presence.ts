@@ -10,13 +10,14 @@ export type SyncPresenceResult =
     };
 
 /**
- * Upsert latest GPS + Expo push token for this driver (RLS: roster `auth_user_id` must match session).
+ * Upsert latest GPS + device push token (FCM) for this driver (RLS: roster `auth_user_id` must match session).
  */
 export async function syncDriverPresence(
   client: SupabaseClient,
   session: Session,
   coords: { lat: number; lng: number; accuracyM: number | null },
-  expoPushToken: string | null
+  /** FCM token (or legacy Expo token); stored in `expo_push_token` column. */
+  devicePushToken: string | null
 ): Promise<SyncPresenceResult> {
   const { data: driver, error: dErr } = await client
     .from("drivers")
@@ -51,13 +52,13 @@ export async function syncDriverPresence(
     return { ok: false, reason: "location_error", message: locErr.message };
   }
 
-  if (expoPushToken) {
+  if (devicePushToken) {
     const platform = Platform.OS === "ios" ? "ios" : "android";
     const { error: tokErr } = await client.from("driver_push_tokens").upsert(
       {
         user_id: session.user.id,
         driver_id: driver.id,
-        expo_push_token: expoPushToken,
+        expo_push_token: devicePushToken,
         platform,
         updated_at: now,
       },
