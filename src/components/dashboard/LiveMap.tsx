@@ -112,6 +112,17 @@ export function LiveMap(props: {
     handshakeIds,
   ]);
 
+  const carrierNameById = useMemo(() => {
+    const m = new globalThis.Map<string, string>();
+    for (const c of props.carriers) {
+      m.set(c.id, c.name.trim());
+    }
+    return m;
+  }, [props.carriers]);
+
+  /** Agency / broker / dispatcher: show authority name on each driver-app pin. */
+  const showCarrierOnDriverPing = !props.isCarrierViewer;
+
   const initialView = useMemo(() => {
     const pts: { lng: number; lat: number }[] = [
       ...pings.map((p) => ({ lng: p.lng, lat: p.lat })),
@@ -225,6 +236,10 @@ export function LiveMap(props: {
           const stale = isStaleTruckPing(p.lastPingAt);
           const minsAgo = minutesSincePing(p.lastPingAt);
           const pulse = p.carrierHasEld && p.source === "eld";
+          const truckCarrierLabel =
+            showCarrierOnDriverPing && multi
+              ? carrierNameById.get(p.truck.carrier_id) ?? null
+              : null;
 
           return (
             <Marker
@@ -247,9 +262,17 @@ export function LiveMap(props: {
                     }`}
                   />
                 </div>
-                <span className="max-w-[100px] truncate text-[10px] font-medium text-slate-200">
+                <span className="max-w-[120px] truncate text-center text-[10px] font-medium text-slate-200">
                   {p.truck.unit_number}
                 </span>
+                {truckCarrierLabel ? (
+                  <span
+                    className="max-w-[140px] truncate text-center text-[9px] font-medium leading-tight text-slate-400"
+                    title={truckCarrierLabel}
+                  >
+                    {truckCarrierLabel}
+                  </span>
+                ) : null}
                 {live ? (
                   <span className="rounded bg-emerald-600/95 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
                     Live
@@ -268,6 +291,9 @@ export function LiveMap(props: {
           const stale = isStaleTruckPing(p.lastPingAt);
           const minsAgo = minutesSincePing(p.lastPingAt);
           const live = isRecentEldPing(p.lastPingAt);
+          const carrierLabel = showCarrierOnDriverPing
+            ? carrierNameById.get(p.carrierId) ?? null
+            : null;
 
           return (
             <Marker
@@ -286,9 +312,17 @@ export function LiveMap(props: {
                   ) : null}
                   <div className="relative z-[1] h-3.5 w-3.5 rounded-full border-2 border-white bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.75)] ring-1 ring-black/40" />
                 </div>
-                <span className="max-w-[120px] truncate text-[10px] font-medium text-cyan-100">
+                <span className="max-w-[140px] truncate text-center text-[10px] font-medium text-cyan-100">
                   {p.fullName}
                 </span>
+                {carrierLabel ? (
+                  <span
+                    className="max-w-[140px] truncate text-center text-[9px] font-medium leading-tight text-slate-400"
+                    title={carrierLabel}
+                  >
+                    {carrierLabel}
+                  </span>
+                ) : null}
                 <span className="rounded bg-cyan-600/90 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
                   App
                 </span>

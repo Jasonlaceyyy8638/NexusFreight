@@ -91,6 +91,10 @@ const config: ExpoConfig = {
   extra: {
     supabaseUrl,
     supabaseAnonKey,
+    /** Set by `eas init` — required for EAS Build / Submit. */
+    eas: {
+      projectId: "88203e53-fff5-474e-b209-08f021798c27",
+    },
   },
 };
 
