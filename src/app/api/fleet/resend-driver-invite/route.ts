@@ -9,30 +9,82 @@ import {
 
 export const runtime = "nodejs";
 
-function appOrigin(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+function trimOrigin(v: string | undefined): string {
+  return (v ?? "").trim().replace(/\/$/, "");
+}
+
+/**
+ * Supabase rejects `redirectTo` if it is not in Auth → URL Configuration.
+ * Production often has APP_URL vs SITE_URL vs host-only Netlify vars — try each.
+ */
+function redirectOriginCandidates(): string[] {
+  const raw = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.URL,
+    process.env.DEPLOY_URL,
+    process.env.DEPLOY_PRIME_URL,
+  ];
+  const out: string[] = [];
+  for (const r of raw) {
+    const t = trimOrigin(r);
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
 }
 
 type Body = {
   driver_id?: string;
 };
 
-function extractActionLink(
-  gen: unknown
-): string | null {
+function extractActionLink(gen: unknown): string | null {
   if (!gen || typeof gen !== "object") return null;
-  const props = (gen as { properties?: Record<string, unknown> }).properties;
-  if (!props || typeof props !== "object") return null;
-  const link =
-    props.action_link ??
-    props.actionLink ??
-    (props as { hashed_link?: string }).hashed_link;
-  return typeof link === "string" && link.startsWith("http") ? link : null;
+  const o = gen as Record<string, unknown>;
+  const props =
+    o.properties && typeof o.properties === "object"
+      ? (o.properties as Record<string, unknown>)
+      : null;
+  const candidates = [
+    o.action_link,
+    o.actionLink,
+    props?.action_link,
+    props?.actionLink,
+    props?.hashed_link,
+    (props as { hashed_link?: unknown } | null)?.hashed_link,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && (c.startsWith("http://") || c.startsWith("https://"))) {
+      return c;
+    }
+  }
+  /** Some GoTrue versions nest the link under `user` or use alternate keys. */
+  const deep = findActionLinkDeep(gen, 0);
+  return deep;
+}
+
+function findActionLinkDeep(obj: unknown, depth: number): string | null {
+  if (depth > 10) return null;
+  if (!obj || typeof obj !== "object") return null;
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    const key = k.toLowerCase();
+    if (
+      (key.includes("action_link") || key === "hashed_link" || key === "href") &&
+      typeof v === "string" &&
+      (v.startsWith("http://") || v.startsWith("https://"))
+    ) {
+      return v;
+    }
+    if (typeof v === "object" && v !== null) {
+      const inner = findActionLinkDeep(v, depth + 1);
+      if (inner) return inner;
+    }
+  }
+  return null;
 }
 
 export async function POST(req: Request) {
-  const admin = createServiceRoleSupabaseClient();
-  if (!admin) {
+  const adminClient = createServiceRoleSupabaseClient();
+  if (!adminClient) {
     return NextResponse.json(
       { error: "SUPABASE_SERVICE_ROLE_KEY is not configured on the server." },
       { status: 503 }
@@ -142,13 +194,14 @@ export async function POST(req: Request) {
       {
         error:
           "This driver is not tied to an invited account yet. Send a new invite from the carrier profile or fleet invite form.",
+        code: "NO_AUTH_USER",
       },
       { status: 400 }
     );
   }
 
   const { data: authData, error: authErr } =
-    await admin.auth.admin.getUserById(row.auth_user_id);
+    await adminClient.auth.admin.getUserById(row.auth_user_id);
   if (authErr || !authData?.user) {
     return NextResponse.json(
       { error: "Could not load the driver auth account." },
@@ -157,40 +210,29 @@ export async function POST(req: Request) {
   }
 
   const authUser = authData.user;
-  if (authUser.email_confirmed_at) {
-    return NextResponse.json(
-      {
-        error:
-          "This driver has already completed signup. They can sign in with their email and password.",
-      },
-      { status: 400 }
-    );
-  }
 
   const emailRaw =
     (row.contact_email ?? authUser.email ?? "").trim().toLowerCase();
   if (!emailRaw || !emailRaw.includes("@")) {
     return NextResponse.json(
-      { error: "Driver is missing a contact email for the invite." },
+      { error: "Driver is missing a contact email for the invite.", code: "NO_EMAIL" },
       { status: 400 }
     );
   }
 
-  const base = appOrigin();
-  if (!base) {
+  const origins = redirectOriginCandidates();
+  if (origins.length === 0) {
     return NextResponse.json(
       {
         error:
-          "NEXT_PUBLIC_APP_URL must be set so Supabase can redirect after the driver accepts the invite.",
+          "Set NEXT_PUBLIC_APP_URL or NEXT_PUBLIC_SITE_URL (or deploy URL) so the invite redirect URL can be built.",
+        code: "NO_PUBLIC_ORIGIN",
       },
       { status: 503 }
     );
   }
 
   const nfInvite = isCarrierOrg ? "fleet_driver" : "agency_driver";
-  const callback = new URL("/auth/callback", base);
-  callback.searchParams.set("next", "/driver/dashboard");
-
   const meta = {
     nf_invite: nfInvite,
     org_id: orgId,
@@ -198,60 +240,125 @@ export async function POST(req: Request) {
     full_name: (row.full_name ?? "").trim(),
   };
 
-  const { error: invErr } = await admin.auth.admin.inviteUserByEmail(emailRaw, {
-    redirectTo: callback.toString(),
-    data: meta,
-  });
+  type StepErr = { step: string; message: string };
+  const stepErrors: StepErr[] = [];
 
-  if (!invErr) {
-    try {
-      await admin.from("platform_audit_events").insert({
-        event_type: "driver_invited",
-        org_id: orgId,
-        actor_user_id: user.id,
-        metadata: {
-          carrier_id: row.carrier_id,
-          invited_email: emailRaw,
-          scope: nfInvite,
-          resent: true,
-          driver_id: row.id,
-        },
-      });
-    } catch {
-      /* audit table optional */
-    }
-    return NextResponse.json({ ok: true, via: "supabase_invite" });
-  }
+  let lastInviteErrMsg = "";
+  let genData: unknown = null;
 
-  const invMsg = (invErr.message ?? "").toLowerCase();
-  const likelyAlreadyInvited =
-    invMsg.includes("already") ||
-    invMsg.includes("registered") ||
-    invMsg.includes("exists");
-
-  if (!likelyAlreadyInvited) {
-    return NextResponse.json(
-      { error: invErr.message ?? "Could not resend the invite." },
-      { status: 400 }
-    );
-  }
-
-  const { data: genData, error: genErr } = await admin.auth.admin.generateLink({
-    type: "invite",
-    email: emailRaw,
-    options: {
-      redirectTo: callback.toString(),
+  originLoop: for (const base of origins) {
+    const callback = new URL("/auth/callback", base);
+    callback.searchParams.set("next", "/driver/dashboard");
+    const redirectTo = callback.toString();
+    const inviteOptions = {
+      redirectTo,
       data: meta,
-    },
-  });
+    };
+    const redirectOnly = { redirectTo };
 
-  if (genErr || !genData) {
+    const { error: invErr } = await adminClient.auth.admin.inviteUserByEmail(
+      emailRaw,
+      inviteOptions
+    );
+    if (invErr) {
+      lastInviteErrMsg = invErr.message;
+      stepErrors.push({
+        step: `inviteUserByEmail @ ${base}`,
+        message: invErr.message,
+      });
+    } else {
+      try {
+        await adminClient.from("platform_audit_events").insert({
+          event_type: "driver_invited",
+          org_id: orgId,
+          actor_user_id: user.id,
+          metadata: {
+            carrier_id: row.carrier_id,
+            invited_email: emailRaw,
+            scope: nfInvite,
+            resent: true,
+            driver_id: row.id,
+          },
+        });
+      } catch {
+        /* audit table optional */
+      }
+      return NextResponse.json({ ok: true, via: "supabase_invite" });
+    }
+
+    const attempts = [
+      () =>
+        adminClient.auth.admin.generateLink({
+          type: "invite",
+          email: emailRaw,
+          options: {},
+        }),
+      () =>
+        adminClient.auth.admin.generateLink({
+          type: "invite",
+          email: emailRaw,
+          options: redirectOnly,
+        }),
+      () =>
+        adminClient.auth.admin.generateLink({
+          type: "invite",
+          email: emailRaw,
+          options: inviteOptions,
+        }),
+      () =>
+        adminClient.auth.admin.generateLink({
+          type: "magiclink",
+          email: emailRaw,
+          options: redirectOnly,
+        }),
+      () =>
+        adminClient.auth.admin.generateLink({
+          type: "recovery",
+          email: emailRaw,
+          options: redirectOnly,
+        }),
+    ];
+
+    const labels = [
+      "generateLink(invite, {})",
+      "generateLink(invite, redirectOnly)",
+      "generateLink(invite, fullOptions)",
+      "generateLink(magiclink)",
+      "generateLink(recovery)",
+    ];
+
+    for (let i = 0; i < attempts.length; i++) {
+      const r = await attempts[i]();
+      const err = r.error as { message?: string } | null;
+      const data = r.data as unknown;
+      if (err) {
+        stepErrors.push({
+          step: `${labels[i]} @ ${base}`,
+          message: err.message ?? "unknown error",
+        });
+      }
+      if (!err && data) {
+        genData = data;
+        break originLoop;
+      }
+    }
+  }
+
+  if (!genData) {
+    const sample = origins[0]
+      ? `${origins[0]}/auth/callback?next=/driver/dashboard`
+      : "";
     return NextResponse.json(
       {
         error:
-          genErr?.message ||
-          invErr.message ||
-          "Could not resend the invite. Try again or resend from Supabase Authentication → Users.",
+          "Could not generate a signup or login link. Add every redirect URL you use to Supabase → Authentication → URL Configuration → Redirect URLs.",
+        hint: sample
+          ? `Include at least: ${sample} (and try again with NEXT_PUBLIC_APP_URL matching production).`
+          : undefined,
+        code: "LINK_GENERATION_FAILED",
+        steps: stepErrors.length
+          ? stepErrors
+          : [{ step: "inviteUserByEmail", message: lastInviteErrMsg || "unknown" }],
       },
       { status: 400 }
     );
@@ -304,7 +411,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await admin.from("platform_audit_events").insert({
+    await adminClient.from("platform_audit_events").insert({
       event_type: "driver_invited",
       org_id: orgId,
       actor_user_id: user.id,

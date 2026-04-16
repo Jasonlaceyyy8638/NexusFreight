@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { NexusFreightLogo } from "@/components/marketing/NexusFreightLogo";
 import { BrokerSetupEngineSection } from "@/components/landing/BrokerSetupEngineSection";
 import { PlatformCapabilitiesSection } from "@/components/landing/FeatureCardsGrid";
@@ -22,7 +23,31 @@ import { LandingMarketPulseSection } from "@/components/landing/LandingMarketPul
 import { RateConFeatureSpotlightSection } from "@/components/landing/RateConFeatureSpotlightSection";
 import { HomeJsonLd } from "@/components/seo/HomeJsonLd";
 
-export default function Home() {
+type HomePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+/**
+ * Supabase PKCE email links sometimes land on Site URL with `?code=` (no hash).
+ * Forward to `/auth/callback` so the client can `exchangeCodeForSession` — otherwise
+ * users stay on the marketing home and appear “stuck” after signup/invite.
+ */
+export default async function Home({ searchParams }: HomePageProps) {
+  const q = await searchParams;
+  const hasCode = typeof q.code === "string" && q.code.length > 0;
+  const hasOAuthError =
+    typeof q.error === "string" &&
+    (typeof q.error_description === "string" ||
+      typeof q.error_code === "string");
+  if (hasCode || hasOAuthError) {
+    const usp = new URLSearchParams();
+    for (const [k, v] of Object.entries(q)) {
+      if (typeof v === "string") usp.set(k, v);
+      else if (Array.isArray(v) && v[0]) usp.set(k, v[0]);
+    }
+    redirect(`/auth/callback?${usp.toString()}`);
+  }
+
   return (
     <div className="relative flex min-h-screen flex-col bg-[#0D0E10] text-white">
       <HomeJsonLd />

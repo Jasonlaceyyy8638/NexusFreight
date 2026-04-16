@@ -84,6 +84,8 @@ export function FleetDriversPage() {
         });
         const j = (await res.json().catch(() => ({}))) as {
           error?: string;
+          message?: string;
+          via?: string;
         };
         if (!res.ok) {
           setErr(typeof j.error === "string" ? j.error : "Invite failed.");
@@ -92,7 +94,11 @@ export function FleetDriversPage() {
         setEmail("");
         setFullName("");
         setMsg(
-          "Invite sent. The driver will appear in your roster after they accept the email and set a password."
+          typeof j.message === "string" && j.message.trim()
+            ? j.message
+            : j.via === "magic_link_existing_email"
+              ? "That email already had an account—we sent a sign-in link instead."
+              : "Invite sent. The driver will appear in your roster after they accept the email and set a password."
         );
         await refresh();
       } catch {

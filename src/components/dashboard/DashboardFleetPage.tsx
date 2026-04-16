@@ -77,12 +77,23 @@ export function DashboardFleetPage() {
         });
         const j = (await res.json().catch(() => ({}))) as {
           error?: string;
+          hint?: string;
+          code?: string;
           via?: string;
+          steps?: { step: string; message: string }[];
         };
         if (!res.ok) {
-          toast.error(
-            typeof j.error === "string" ? j.error : "Could not resend invite."
-          );
+          const msg =
+            typeof j.error === "string" ? j.error : "Could not resend invite.";
+          const hint = typeof j.hint === "string" ? j.hint.trim() : "";
+          const steps =
+            Array.isArray(j.steps) && j.steps.length > 0
+              ? j.steps
+                  .map((s) => `${s.step}: ${s.message}`)
+                  .join("\n")
+              : "";
+          const desc = [hint, steps].filter(Boolean).join("\n\n");
+          toast.error(msg, desc ? { description: desc } : undefined);
           return;
         }
         toast.success(

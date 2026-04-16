@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendResendPlainText, resendPlainConfigured } from "@/lib/email/resend-plain";
 import { createServiceRoleSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -10,6 +11,26 @@ export const runtime = "nodejs";
 
 function appOrigin(): string {
   return (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+}
+
+function isExistingUserInviteError(err: { message?: string } | null): boolean {
+  const m = (err?.message ?? "").toLowerCase();
+  return (
+    m.includes("already been registered") ||
+    m.includes("already registered") ||
+    m.includes("user already exists") ||
+    m.includes("email address is already") ||
+    m.includes("duplicate key value")
+  );
+}
+
+function magicLinkFromGeneratePayload(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const o = data as Record<string, unknown>;
+  const props = o.properties;
+  if (!props || typeof props !== "object") return null;
+  const link = (props as Record<string, unknown>).action_link;
+  return typeof link === "string" && link.startsWith("http") ? link : null;
 }
 
 type Body = {
@@ -156,18 +177,87 @@ export async function POST(req: Request) {
   const callback = new URL("/auth/callback", base);
   callback.searchParams.set("next", "/driver/dashboard");
 
+  const inviteMeta = {
+    nf_invite: nfInvite,
+    org_id: orgId,
+    carrier_id: carrierId,
+    full_name: fullName,
+  };
+
   const { data: inviteData, error: invErr } =
     await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo: callback.toString(),
-      data: {
-        nf_invite: nfInvite,
-        org_id: orgId,
-        carrier_id: carrierId,
-        full_name: fullName,
-      },
+      data: inviteMeta,
     });
 
   if (invErr) {
+    if (isExistingUserInviteError(invErr)) {
+      const { data: genData, error: genErr } =
+        await admin.auth.admin.generateLink({
+          type: "magiclink",
+          email,
+          options: {
+            redirectTo: callback.toString(),
+            data: inviteMeta,
+          },
+        });
+      const actionLink = !genErr ? magicLinkFromGeneratePayload(genData) : null;
+      if (actionLink && resendPlainConfigured()) {
+        try {
+          await sendResendPlainText({
+            to: email,
+            subject: "Sign in to NexusFreight (driver)",
+            text: [
+              "This email already has a NexusFreight account.",
+              "",
+              "Open this link to sign in on this device:",
+              actionLink,
+              "",
+              "Or use the Sign in page with your email and password.",
+            ].join("\n"),
+          });
+        } catch (e) {
+          return NextResponse.json(
+            {
+              error:
+                e instanceof Error
+                  ? e.message
+                  : "Could not email a sign-in link.",
+            },
+            { status: 502 }
+          );
+        }
+        try {
+          await admin.from("platform_audit_events").insert({
+            event_type: "driver_invited",
+            org_id: orgId,
+            actor_user_id: user.id,
+            metadata: {
+              carrier_id: carrierId,
+              invited_email: email,
+              scope: nfInvite,
+              via: "magic_link_existing_email",
+            },
+          });
+        } catch {
+          /* optional */
+        }
+        return NextResponse.json({
+          ok: true,
+          via: "magic_link_existing_email",
+          message:
+            "That email already had an account. We emailed a sign-in link instead.",
+        });
+      }
+      return NextResponse.json(
+        {
+          error:
+            "That email already has a NexusFreight login. Ask the driver to open Sign in and use Forgot password if they don’t know the password.",
+          code: "USER_ALREADY_EXISTS",
+        },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: invErr.message ?? "Invite failed." },
       { status: 400 }

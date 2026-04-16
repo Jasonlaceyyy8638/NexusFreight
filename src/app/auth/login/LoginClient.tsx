@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MarketingNav } from "@/components/landing/MarketingNav";
 import { RevealableSecretInput } from "@/components/ui/RevealableSecretInput";
 import { createClient } from "@/lib/supabase/client";
@@ -23,11 +23,23 @@ export function LoginClient() {
   const supabase = useMemo(() => createClient(), []);
   const nextPath = safeNextPath(searchParams.get("next"));
   const passwordResetOk = searchParams.get("reset") === "1";
+  const isDriverNext = nextPath.startsWith("/driver");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const d = searchParams.get("error_description")?.trim();
+    const e = searchParams.get("error")?.trim();
+    return d || e || null;
+  });
+
+  useEffect(() => {
+    const fromUrl =
+      searchParams.get("error_description")?.trim() ||
+      searchParams.get("error")?.trim();
+    if (fromUrl) setError(fromUrl);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +94,21 @@ export function LoginClient() {
             role="status"
           >
             Your password was updated. Sign in with your new password.
+          </p>
+        ) : null}
+
+        {isDriverNext && !passwordResetOk ? (
+          <p className="mt-6 rounded-md border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-relaxed text-slate-300">
+            Driver account: use the email your carrier invited and the password you
+            set when you completed signup. If the invite link says you already signed
+            up, sign in here—use{" "}
+            <Link
+              href="/auth/forgot-password"
+              className="font-medium text-[#3395ff] hover:underline"
+            >
+              Forgot password
+            </Link>{" "}
+            if you don&apos;t remember it.
           </p>
         ) : null}
 
