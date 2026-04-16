@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 /**
- * Optional Intercom (Crisp is loaded globally from `CrispChatScript` in root layout).
+ * Optional Intercom (Crisp is loaded via `CrispRouteGate` except on `/driver/*`).
  * https://developers.intercom.com/installing-intercom/docs/basic-javascript
  *   NEXT_PUBLIC_INTERCOM_APP_ID=your_app_id
  *

@@ -1,4 +1,5 @@
 import { DriverChrome } from "@/components/driver/DriverChrome";
+import { DriverPasswordGate } from "@/components/driver/DriverPasswordGate";
 import { DriverPortalProvider } from "@/components/driver/DriverPortalProvider";
 import { DriverViewportGate } from "./DriverViewportGate";
 
@@ -9,9 +10,11 @@ export default function DriverLayout({
 }>) {
   return (
     <DriverViewportGate>
-      <DriverPortalProvider>
-        <DriverChrome>{children}</DriverChrome>
-      </DriverPortalProvider>
+      <DriverPasswordGate>
+        <DriverPortalProvider>
+          <DriverChrome>{children}</DriverChrome>
+        </DriverPortalProvider>
+      </DriverPasswordGate>
     </DriverViewportGate>
   );
 }

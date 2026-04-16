@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSiteUrl } from "@/lib/site-url";
-import { CrispChatScript } from "@/components/support/CrispChatScript";
-import { CrispIdentitySync } from "@/components/support/CrispIdentitySync";
+import { CrispRouteGate } from "@/components/support/CrispRouteGate";
 import { PwaServiceWorkerRegister } from "@/components/pwa/PwaServiceWorkerRegister";
 import { ThirdPartyChatWidget } from "@/components/support/ThirdPartyChatWidget";
 import "./globals.css";
@@ -79,8 +78,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-[100dvh] flex-col font-sans">
         <PwaServiceWorkerRegister />
-        <CrispChatScript />
-        <CrispIdentitySync />
+        <CrispRouteGate />
         <AppShell>{children}</AppShell>
         <ThirdPartyChatWidget />
       </body>

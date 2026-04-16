@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { requiresDriverPasswordSet } from "@/lib/auth/driver-invite-metadata";
 
 function safeNext(raw: string | null): string {
   if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
@@ -90,6 +91,19 @@ export function AuthCallbackClient() {
             "",
             `${window.location.pathname}${window.location.search}`
           );
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          const meta = user?.user_metadata as Record<string, unknown> | undefined;
+          if (
+            requiresDriverPasswordSet(meta) &&
+            nextPath.startsWith("/driver")
+          ) {
+            assign(
+              `/auth/driver/set-password?next=${encodeURIComponent(nextPath)}`
+            );
+            return;
+          }
           assign(nextPath);
           return;
         }
