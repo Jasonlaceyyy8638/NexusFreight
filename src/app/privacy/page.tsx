@@ -181,11 +181,57 @@ export default function PrivacyPage() {
         email below to submit a request.
       </p>
 
+      <h2
+        id="account-deletion"
+        className="mt-10 text-xl font-semibold tracking-tight text-white sm:text-2xl"
+      >
+        Account deletion
+      </h2>
+      <p className="mt-4 leading-relaxed">
+        You may request deletion of your NexusFreight account and associated
+        personal data held by us in connection with the Service.
+      </p>
+      <p className="mt-4 leading-relaxed">
+        <strong className="font-semibold text-slate-200">How to request</strong>
+        : Send an email from the address associated with your account to{" "}
+        <a href="mailto:info@nexusfreight.tech?subject=Account%20deletion%20request">
+          info@nexusfreight.tech
+        </a>{" "}
+        with the subject line{" "}
+        <strong className="font-semibold text-slate-200">
+          Account deletion request
+        </strong>
+        . Include your full name and the email address on your NexusFreight
+        login so we can verify ownership.
+      </p>
+      <p className="mt-4 leading-relaxed">
+        <strong className="font-semibold text-slate-200">What we do</strong>:
+        We will confirm receipt and process verified requests within a
+        reasonable period, typically within{" "}
+        <strong className="font-semibold text-slate-200">
+          thirty (30) business days
+        </strong>
+        , unless a longer period is required by law or dispute resolution. We
+        will delete or anonymize personal data tied to your user account where
+        we no longer need it to operate the Service or meet legal obligations.
+      </p>
+      <p className="mt-4 leading-relaxed">
+        <strong className="font-semibold text-slate-200">
+          What may be kept
+        </strong>
+        : Your carrier or agency may be required to retain certain business,
+        safety, or regulatory records (for example load or settlement records)
+        independently of account deletion. Where we must retain information for
+        legal, tax, or fraud-prevention reasons, we will restrict use to those
+        purposes. Aggregated or de-identified data that does not identify you may
+        also be retained.
+      </p>
+
       <h2 className="mt-10 text-xl font-semibold tracking-tight text-white sm:text-2xl">
         Contact
       </h2>
       <p className="mt-4 leading-relaxed">
-        Privacy questions:{" "}
+        Privacy questions and account deletion:{" "}
         <a href="mailto:info@nexusfreight.tech">info@nexusfreight.tech</a>.
         See also our{" "}
         <Link href="/terms" className="font-medium">
